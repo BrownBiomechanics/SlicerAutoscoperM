@@ -83,9 +83,6 @@ def registerSampleData():
     nodeNames='AutoscoperConnect2'
   )
 
-####
-import qt
-####
 
 #
 # AutoscoperConnectWidget
@@ -105,8 +102,6 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
     self.logic = None
     self._parameterNode = None
     self._updatingGUIFromParameterNode = False
-    
-    self.aut_process = qt.QProcess()
 
   def setup(self):
     """
@@ -168,7 +163,6 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
     """
     # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
     self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-    #self.aut_process.kill()
 
   def onSceneStartClose(self, caller, event):
     """
@@ -274,41 +268,10 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
     """
     Run processing when user clicks "Apply" button.
     """
-    # try:
-    aut_root = self.ui.autoscoperRootPath.directory
-    
-    import os.path
-    from os import path
-    
-    os.chdir(aut_root)
-    autoscoper_executable_path = aut_root + "\\autoscoper.exe"
-
-    if path.exists(autoscoper_executable_path):
-        print("loading autoscoper.exe")
-        # send command
-        self.aut_process.start("cmd.exe",["/K ", autoscoper_executable_path])
-        self.aut_process.waitForStarted()
-        
-    else:
-        print("autoscoper.exe does not exist")
-        
-	#aut_process = None
-	  
-      # # Compute output
-      # self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
-        # self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
-
-      # # Compute inverted output (if needed)
-      # if self.ui.invertedOutputSelector.currentNode():
-        # # If additional output volume is selected then result with inverted threshold is written there
-        # self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
-          # self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
-
-    # except Exception as e:
-      # slicer.util.errorDisplay("Failed to compute results: "+str(e))
-      # import traceback
-      # traceback.print_exc()
-
+    executablePath = os.path.join(self.ui.autoscoperRootPath.directory, "autoscoper")
+    if slicer.app.os == 'win':
+      executablePath = executablePath + ".exe"
+    self.logic.startAutoscoper(executablePath)
 
 #
 # AutoscoperConnectLogic
@@ -330,6 +293,8 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
 
+    self.AutoscoperProcess = qt.QProcess()
+
   def setDefaultParameters(self, parameterNode):
     """
     Initialize parameter node with default settings.
@@ -338,6 +303,50 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("Threshold", "100.0")
     if not parameterNode.GetParameter("Invert"):
       parameterNode.SetParameter("Invert", "false")
+
+  def startAutoscoper(self, executablePath):
+    """Start Autoscoper executable in a new process
+
+    This call waits the process has been started and returns.
+    """
+    if not os.path.exists(executablePath):
+      logging.error("Specified executable %s does not exist" % executablePath)
+      return
+
+    if self.AutoscoperProcess.state() in [qt.QProcess.Starting, qt.QProcess.Running]:
+      logging.error("Autoscoper executable already started")
+      return
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def changeCurrentDir(directory):
+        currentDirectory = os.getcwd()
+        try:
+          os.chdir(directory)
+          yield
+        finally:
+          os.chdir(currentDirectory)
+
+    executableDirectory = os.path.dirname(executablePath)
+
+    with changeCurrentDir(executableDirectory):
+      logging.info("Starting Autoscoper %s" % executablePath)
+      #self.AutoscoperProcess.start("cmd.exe", ["/K ", executablePath])
+      self.AutoscoperProcess.start(executablePath)
+      self.AutoscoperProcess.waitForStarted()
+
+  def stopAutoscoper(self, force=True):
+    """Stop Autoscoper process
+    """
+    if self.AutoscoperProcess.state() == qt.QProcess.NotRunning:
+      logging.error("Autoscoper executable is not running")
+      return
+
+    if force:
+      self.AutoscoperProcess.kill()
+    else:
+      self.AutoscoperProcess.terminate()
 
   def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
     """
