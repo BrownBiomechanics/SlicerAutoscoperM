@@ -1,3 +1,4 @@
+import contextlib
 import os
 import unittest
 import logging
@@ -294,6 +295,8 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self)
 
     self.AutoscoperProcess = qt.QProcess()
+    self.TcpSocket = qt.QTcpSocket()
+    self.TcpSocket.connect("error(QAbstractSocket::SocketError)", self._displaySocketError)
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -303,6 +306,29 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("Threshold", "100.0")
     if not parameterNode.GetParameter("Invert"):
       parameterNode.SetParameter("Invert", "false")
+
+  def connectToAutoscoper(self):
+    """Connect to a running instance of Autoscoper.
+    """
+    if self.TcpSocket.state() == qt.QAbstractSocket.ConnectedState:
+      logging.warning("connection to Autoscoper is already established")
+      return
+    if self.TcpSocket.state() != qt.QAbstractSocket.UnconnectedState:
+      logging.warning("connection to Autoscoper is in progress")
+      return
+    self.TcpSocket.connectToHost("127.0.0.1", 30007)
+    self.TcpSocket.waitForConnected(1000)
+
+  def disconnectFromAutoscoper(self):
+    """Disconnect from a running instance of Autoscoper.
+    """
+    if self.TcpSocket.state() == qt.QAbstractSocket.UnconnectedState:
+      logging.warning("connection to Autoscoper is not established")
+      return
+    if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
+      logging.warning("disconnection to Autoscoper is in progress")
+      return
+    self.TcpSocket.disconnectFromHost()
 
   def startAutoscoper(self, executablePath):
     """Start Autoscoper executable in a new process
@@ -316,8 +342,6 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     if self.AutoscoperProcess.state() in [qt.QProcess.Starting, qt.QProcess.Running]:
       logging.error("Autoscoper executable already started")
       return
-
-    import contextlib
 
     @contextlib.contextmanager
     def changeCurrentDir(directory):
@@ -336,6 +360,10 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
       self.AutoscoperProcess.start(executablePath)
       self.AutoscoperProcess.waitForStarted()
 
+    slicer.app.processEvents()
+
+    self.connectToAutoscoper()
+
   def stopAutoscoper(self, force=True):
     """Stop Autoscoper process
     """
@@ -348,6 +376,20 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     else:
       self.AutoscoperProcess.terminate()
 
+  def _displaySocketError(self, sockerError):
+    logging.error("The following error occurred: %s" % self.TcpSocket.errorString())
+
+  @contextlib.contextmanager
+  def _streamToAutoscoper(self):
+    """Yield datastream for sending data to Autoscoper.
+    """
+    try:
+      data = qt.QByteArray()
+      stream = qt.QDataStream(data, qt.QIODevice.WriteOnly)
+      yield stream
+    finally:
+      self.TcpSocket.write(data)
+
   def _checkAutoscoperConnection(method):
     """Decorator to check that Autoscoper process is ready.
     """
@@ -357,8 +399,8 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     @wraps(method)
     def wrapped(self, *method_args, **method_kwargs):
 
-      if self.AutoscoperProcess.state() != qt.QProcess.Running:
-        raise RuntimeError("Autoscoper executable is not running")
+      if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
+        raise RuntimeError("Autoscoper connection is not established")
 
       return method(self, *method_args, **method_kwargs)
 
@@ -368,7 +410,9 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
   def loadTrial(self, filename):
     """Load trial in Autoscoper
     """
-    logging.error("not implemented")
+    with self._streamToAutoscoper() as stream:
+      stream.writeUInt8(1)
+      stream.writeRawData(filename.encode("latin1"))
 
   @_checkAutoscoperConnection
   def loadTrackingDataVolume(self):
