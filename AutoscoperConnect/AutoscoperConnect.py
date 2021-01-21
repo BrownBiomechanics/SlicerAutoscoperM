@@ -295,6 +295,7 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self)
 
     self.AutoscoperProcess = qt.QProcess()
+    self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
     self.TcpSocket = qt.QTcpSocket()
     self.TcpSocket.connect("error(QAbstractSocket::SocketError)", self._displaySocketError)
     self.StreamFromAutoscoper = qt.QDataStream()
