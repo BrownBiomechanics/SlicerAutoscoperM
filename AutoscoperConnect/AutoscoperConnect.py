@@ -299,6 +299,7 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     self.TcpSocket = qt.QTcpSocket()
     self.TcpSocket.connect("error(QAbstractSocket::SocketError)", self._displaySocketError)
     self.StreamFromAutoscoper = qt.QDataStream()
+    self.StreamFromAutoscoper.setByteOrder(qt.QSysInfo.ByteOrder)
     self.StreamFromAutoscoper.setDevice(self.TcpSocket)
 
   def setDefaultParameters(self, parameterNode):
@@ -389,6 +390,7 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     try:
       data = qt.QByteArray()
       stream = qt.QDataStream(data, qt.QIODevice.WriteOnly)
+      stream.setByteOrder(qt.QSysInfo.ByteOrder)
       yield stream
     finally:
       self.TcpSocket.write(data)
