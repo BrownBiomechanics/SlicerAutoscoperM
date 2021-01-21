@@ -348,6 +348,84 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     else:
       self.AutoscoperProcess.terminate()
 
+  def _checkAutoscoperConnection(method):
+    """Decorator to check that Autoscoper process is ready.
+    """
+
+    from functools import wraps
+
+    @wraps(method)
+    def wrapped(self, *method_args, **method_kwargs):
+
+      if self.AutoscoperProcess.state() != qt.QProcess.Running:
+        raise RuntimeError("Autoscoper executable is not running")
+
+      return method(self, *method_args, **method_kwargs)
+
+    return wrapped
+
+  @_checkAutoscoperConnection
+  def loadTrial(self, filename):
+    """Load trial in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def loadTrackingDataVolume(self):
+    """Load tracking data in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def saveTrackingDataVolume(self):
+    """Save tracking data in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def loadFilterSettings(self):
+    """Load filter settings in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def setFrame(self):
+    """Set frame in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def getPose(self):
+    """Get pose from Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def setPose(self):
+    """Set pose in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def getNormalizedCrossCorrelation(self):
+    """Get normalized cross-correlation (NCC) from Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def setBackground(self):
+    """Set background in Autoscoper
+    """
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def optimizeFrame(self):
+    logging.error("not implemented")
+
+  @_checkAutoscoperConnection
+  def saveFullDRRImage(self):
+    logging.error("not implemented")
+
   def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
     """
     Run the processing algorithm.
