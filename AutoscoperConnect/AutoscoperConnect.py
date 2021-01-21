@@ -297,6 +297,8 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     self.AutoscoperProcess = qt.QProcess()
     self.TcpSocket = qt.QTcpSocket()
     self.TcpSocket.connect("error(QAbstractSocket::SocketError)", self._displaySocketError)
+    self.StreamFromAutoscoper = qt.QDataStream()
+    self.StreamFromAutoscoper.setDevice(self.TcpSocket)
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -390,6 +392,20 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
     finally:
       self.TcpSocket.write(data)
 
+  def _waitForAutoscoper(self, methodId, msecs=10000):
+    """Block current process waiting for Autoscoper to finish executing a method.
+    """
+    self.TcpSocket.waitForReadyRead(msecs)
+    if self.StreamFromAutoscoper.readUInt8() != methodId:
+      logging.error("unexpected results")
+
+  @contextlib.contextmanager
+  def _streamFromAutoscoper(self, methodId, msecs=10000):
+    """Yield datastream for receiving data from Autoscoper after current method finishes.
+    """
+    self._waitForAutoscoper(methodId, msecs)
+    yield self.StreamFromAutoscoper
+
   def _checkAutoscoperConnection(method):
     """Decorator to check that Autoscoper process is ready.
     """
@@ -410,9 +426,13 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
   def loadTrial(self, filename):
     """Load trial in Autoscoper
     """
+    autoscoperMethodId = 1
+
     with self._streamToAutoscoper() as stream:
-      stream.writeUInt8(1)
+      stream.writeUInt8(autoscoperMethodId)
       stream.writeRawData(filename.encode("latin1"))
+
+    self._waitForAutoscoper(autoscoperMethodId)
 
   @_checkAutoscoperConnection
   def loadTrackingDataVolume(self):
@@ -468,7 +488,12 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
 
   @_checkAutoscoperConnection
   def saveFullDRRImage(self):
-    logging.error("not implemented")
+    autoscoperMethodId = 12
+
+    with self._streamToAutoscoper() as stream:
+      stream.writeUInt8(autoscoperMethodId)
+
+    self._waitForAutoscoper(autoscoperMethodId)
 
   def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
     """
