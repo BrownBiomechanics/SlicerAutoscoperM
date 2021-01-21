@@ -475,13 +475,26 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
   def getNormalizedCrossCorrelation(self):
     """Get normalized cross-correlation (NCC) from Autoscoper
     """
-    logging.error("not implemented")
+    autoscoperMethodId = 8
+
+    with self._streamToAutoscoper() as stream:
+      stream.writeUInt8(autoscoperMethodId)
+
+    with self._streamFromAutoscoper(autoscoperMethodId) as stream:
+      length = stream.readUInt8()
+      return [stream.readDouble() for _ in range(length)]
 
   @_checkAutoscoperConnection
-  def setBackground(self):
+  def setBackground(self, threshold):
     """Set background in Autoscoper
     """
-    logging.error("not implemented")
+    autoscoperMethodId = 9
+
+    with self._streamToAutoscoper() as stream:
+      stream.writeUInt8(autoscoperMethodId)
+      stream.writeDouble(threshold)
+
+    self._waitForAutoscoper(autoscoperMethodId)
 
   @_checkAutoscoperConnection
   def optimizeFrame(self):
