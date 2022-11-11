@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<executable>
+  <category>Examples</category>
+  <title>OpenCLDistExp</title>
+  <description><![CDATA[This is a CLI module that can be bundled in an extension]]></description>
+  <version>0.0.1</version>
+  <documentation-url>https://github.com/username/project</documentation-url>
+  <license>Slicer</license>
+  <contributor>FirstName LastName (Institution), FirstName LastName (Institution)</contributor>
+  <acknowledgements>This work was partially funded by NIH grant NXNNXXNNNNNN-NNXN</acknowledgements>
+  <parameters>
+    <label>IO</label>
+    <description><![CDATA[Input/output parameters]]></description>
+    <double>
+      <name>sigma</name>
+      <longflag>sigma</longflag>
+      <flag>s</flag>
+      <label>Sigma</label>
+      <description><![CDATA[A double value (in units of mm) passed to the algorithm]]></description>
+      <default>1.0</default>
+    </double>
+  </parameters>
+</executable>
