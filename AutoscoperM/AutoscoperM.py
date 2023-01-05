@@ -1,10 +1,16 @@
 import contextlib
-import os
+import os, time, subprocess
 import unittest
 import logging
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
+
+try:  # from https://discourse.slicer.org/t/install-python-library-with-extension/10110/2
+    from PyAutoscoper.connect import AutoscoperConnection
+except:
+    slicer.util.pip_install("PyAutoscoper~=1.1.0")
+    from PyAutoscoper.connect import AutoscoperConnection
 
 #
 # AutoscoperM
@@ -18,17 +24,11 @@ class AutoscoperM(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = (
-            "AutoscoperM"  # TODO: make this more human readable by adding spaces
-        )
-        self.parent.categories = [
-            "Tracking"
-        ]  # TODO: set categories (folders where the module shows up in the module selector)
-        self.parent.dependencies = (
-            []
-        )  # TODO: add here list of module names that this module requires
+        self.parent.title = "AutoscoperM"
+        self.parent.categories = ["Tracking"]
+        self.parent.dependencies = []
         self.parent.contributors = [
-            "Bardiya Akhbari and Amy M Morton (Brown University)"
+            "Anthony Lombardi (Kitware), Bardiya Akhbari (Brown University), Amy Morton (Brown University), Beatriz Paniagua (Kitware), Jean-Christophe Fillion-Robin (Kitware)"
         ]  # TODO: replace with "Firstname Lastname (Organization)"
         # TODO: update with short description of the module and a link to online module documentation
         self.parent.helpText = """
@@ -141,12 +141,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Connections
 
         # These connections ensure that we update parameter node when scene is closed
-        self.addObserver(
-            slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose
-        )
-        self.addObserver(
-            slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose
-        )
+        self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
+        self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
         # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
         # (in the selected parameter node).
@@ -158,6 +154,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Buttons
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        self.ui.closeAutoscoper.connect("clicked(bool)", self.onCloseAutoscoper)
+        self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
+        self.ui.saveTracking.connect("clicked(bool)", self.onSaveTracking)
+        self.ui.loadTracking.connect("clicked(bool)", self.onLoadTracking)
+        self.ui.startTrack.connect("clicked(bool)", self.onStartTrack)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -212,13 +213,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Select default input nodes if nothing is selected yet to save a few clicks for the user
         if not self._parameterNode.GetNodeReference("InputVolume"):
-            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass(
-                "vtkMRMLScalarVolumeNode"
-            )
+            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
             if firstVolumeNode:
-                self._parameterNode.SetNodeReferenceID(
-                    "InputVolume", firstVolumeNode.GetID()
-                )
+                self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
 
     def setParameterNode(self, inputParameterNode):
         """
@@ -269,9 +266,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self.ui.invertOutputCheckBox.checked = (self._parameterNode.GetParameter("Invert") == "true")
 
         # Update buttons states and tooltips
-        if self._parameterNode.GetNodeReference(
-            "InputVolume"
-        ) and self._parameterNode.GetNodeReference("OutputVolume"):
+        if self._parameterNode.GetNodeReference("InputVolume") and self._parameterNode.GetNodeReference("OutputVolume"):
             self.ui.applyButton.toolTip = "Compute output volume"
             self.ui.applyButton.enabled = True
         else:
@@ -290,9 +285,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
-        wasModified = (
-            self._parameterNode.StartModify()
-        )  # Modify all properties in a single batch
+        wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
         # self._parameterNode.SetNodeReferenceID("InputVolume", self.ui.inputSelector.currentNodeID)
         # self._parameterNode.SetNodeReferenceID("OutputVolume", self.ui.outputSelector.currentNodeID)
@@ -307,36 +300,139 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Run processing when user clicks "Apply" button.
         """
         # get the full path from the root path
-        environmentPath = os.path.join(
-            os.getcwd(), "Autoscoper-build\\Autoscoper-build\\bin\\autoscoper_set_env"
-        )
+        environmentPath = os.path.join(os.getcwd(), "Autoscoper-build\\Autoscoper-build\\bin\\autoscoper_set_env")
+        # get all sub directories from the bin
+        sub = os.listdir(os.path.join(os.getcwd(), "Autoscoper-build\\Autoscoper-build\\bin"))
+        # remove the set_env file regardless of the extension/OS
+        if "autoscoper_set_env.bat" in sub:
+            sub.remove("autoscoper_set_env.bat")
+        if "autoscoper_set_env.sh" in sub:
+            sub.remove("autoscoper_set_env.sh")
+        config = sub[0]
         executablePath = os.path.join(
-            os.getcwd(), f"Autoscoper-build\\Autoscoper-build\\bin\\Debug\\autoscoper"
+            os.getcwd(),
+            f"Autoscoper-build\\Autoscoper-build\\bin\\{config}\\autoscoper",
         )
         if slicer.app.os == "win":
             environmentPath = environmentPath + ".bat"
             executablePath = executablePath + ".exe"
         else:
             environmentPath = environmentPath + ".sh"
-        self.logic.startAutoscoper(environmentPath, executablePath)
+
+        # this rips the environment variables from the batch file -> this is a little hacky
+        with open(environmentPath, "r") as f:
+            for line in f:
+                if line.startswith("@set"):
+                    line = line.replace("@set Path=", "")
+                    envs = line.split(";")
+                    environment = []
+                    for env in envs:
+                        if env != "%PATH%":
+                            environment.append(env)
+                    continue
+
+        self.logic.setEnvironment(environment)
+        self.logic.startAutoscoper(executablePath)
 
         self.sampleDir = os.path.join(
-            os.getcwd(), "Autoscoper-build\\Autoscoper-build\\bin\\Debug\\sample_data"
+            os.getcwd(),
+            f"Autoscoper-build\\Autoscoper-build\\bin\\{config}\\sample_data",
         )
 
-        if self.logic.isAutoscoperOpen == True:
-            # read config file
-            self.readConfigFile()
+    def onCloseAutoscoper(self):
+        if self.logic.AutoscoperProcess.state() == qt.QProcess.NotRunning or not self.logic.isAutoscoperOpen:
+            logging.info("Autoscoper is not open")
+            return
+        self.logic.stopAutoscoper()
 
-    def readConfigFile(self):
+    def onLoadConfig(self):
         configPath = self.ui.configSelector.currentPath
-        if configPath.endswith(".cfg"):
-            self.logic.loadTrial(configPath)
+        if configPath.endswith(".cfg") and os.path.exists(configPath):
+            self.logic.AutoscoperSocket.loadTrial(configPath)
+            frames = self.logic.AutoscoperSocket.getNumFrames()
+            volumes = self.logic.AutoscoperSocket.getNumVolumes()
+            self.ui.selectedVolume.maximum = volumes - 1
+            self.ui.trackingVolume.maximum = volumes - 1
+            self.ui.endFrame.maximum = frames - 1
+            self.ui.endFrame.value = frames - 1
+            self.ui.startFrame.maximum = frames - 1
         else:
-            configPath = os.path.join(self.sampleDir, "wrist.cfg")
-            self.logic.loadTrial(configPath)
+            logging.info("Invalid config file")
 
-        print("Loading cfg file: " + configPath)
+    def onSaveTracking(self):
+        trackingPath = self.ui.trackingSelector.currentPath
+        volume = self.ui.selectedVolume.value
+        if trackingPath.endswith(".tra"):
+            save_as_matrix = self.ui.matrixRadio.checked
+            save_as_rows = self.ui.rowRadio.checked
+            save_with_commas = self.ui.commaRadio.checked
+            convert_to_cm = self.ui.cmRadio.checked
+            convert_to_rad = self.ui.radRadio.checked
+            interpolate = self.ui.splineRadio.checked
+            self.logic.AutoscoperSocket.saveTracking(
+                volume,
+                trackingPath,
+                save_as_matrix,
+                save_as_rows,
+                save_with_commas,
+                convert_to_cm,
+                convert_to_rad,
+                interpolate,
+            )
+        else:
+            logging.info("Invalid tracking file")
+
+    def onLoadTracking(self):
+        trackingPath = self.ui.trackingSelector.currentPath
+        volume = self.ui.selectedVolume.value
+        if trackingPath.endswith(".tra") and os.path.exists(trackingPath):
+            is_maxtrix = self.ui.matrixRadio.checked
+            is_rows = self.ui.rowRadio.checked
+            has_commas = self.ui.commaRadio.checked
+            is_cm = self.ui.cmRadio.checked
+            is_rad = self.ui.radRadio.checked
+            is_spline = self.ui.splineRadio.checked
+            self.logic.AutoscoperSocket.loadTrackingData(
+                volume,
+                trackingPath,
+                is_maxtrix,
+                is_rows,
+                has_commas,
+                is_cm,
+                is_rad,
+                is_spline,
+            )
+        else:
+            logging.info("Invalid tracking file")
+
+    def onStartTrack(self):
+        volume = self.ui.trackingVolume.value
+        startFrame = self.ui.startFrame.value
+        endFrame = self.ui.endFrame.value
+        skipFrame = self.ui.skipFrame.value
+        reverse = self.ui.reverse.checked
+        optMethod = self.ui.downhillRadio.checked
+        refinements = self.ui.refinements.value
+        minLim = self.ui.minLim.value
+        maxLim = self.ui.maxLim.value
+        maxEpochs = self.ui.maxEpoch.value
+        maxStall = self.ui.maxStall.value
+        cf = self.ui.sadRadio.checked
+
+        self.ui.progressBar.value = 0
+
+        for frame in range(startFrame, endFrame, skipFrame):
+            self.logic.AutoscoperSocket.setFrame(frame)
+            if reverse:
+                frame = endFrame - (frame - startFrame)
+            if frame != startFrame:
+                pose = self.logic.AutoscoperSocket.getPose(volume, frame - 1)
+                self.logic.AutoscoperSocket.setPose(volume, frame, pose)
+            self.ui.progressBar.value = ((frame - startFrame + 1) / (endFrame - startFrame)) * 100
+            self.ui.progressBar.repaint()
+            self.logic.AutoscoperSocket.optimizeFrame(
+                volume, frame, refinements, maxEpochs, minLim, maxLim, maxStall, skipFrame, optMethod, cf
+            )
 
 
 #
@@ -361,15 +457,19 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
 
         self.AutoscoperProcess = qt.QProcess()
+        self.AutoscoperEnvironment = qt.QProcessEnvironment()
         self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
-        self.TcpSocket = qt.QTcpSocket()
-        self.TcpSocket.connect(
-            "error(QAbstractSocket::SocketError)", self._displaySocketError
-        )
-        self.StreamFromAutoscoper = qt.QDataStream()
-        self.StreamFromAutoscoper.setByteOrder(qt.QSysInfo.ByteOrder)
-        self.StreamFromAutoscoper.setDevice(self.TcpSocket)
         self.isAutoscoperOpen = False
+        self.AutoscoperSocket = None
+
+    def setEnvironment(self, environment):
+        """
+        Add environment paths to the PATH variable
+        """
+        curPath = ""
+        for env in environment:
+            curPath = curPath + ";" + env
+        self.AutoscoperEnvironment.insert("PATH", curPath)
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -382,36 +482,27 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     def connectToAutoscoper(self):
         """Connect to a running instance of Autoscoper."""
-        if self.TcpSocket.state() == qt.QAbstractSocket.ConnectedState:
+        if self.AutoscoperSocket:
             logging.warning("connection to Autoscoper is already established")
             return
-        if self.TcpSocket.state() != qt.QAbstractSocket.UnconnectedState:
-            logging.warning("connection to Autoscoper is in progress")
-            return
-        self.TcpSocket.connectToHost("127.0.0.1", 30007)
-        self.TcpSocket.waitForConnected(5000)
+        self.AutoscoperSocket = AutoscoperConnection()
         logging.info("connection to Autoscoper is established")
 
     def disconnectFromAutoscoper(self):
         """Disconnect from a running instance of Autoscoper."""
-        if self.TcpSocket.state() == qt.QAbstractSocket.UnconnectedState:
+        if self.AutoscoperSocket is None:
             logging.warning("connection to Autoscoper is not established")
             return
-        if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
-            logging.warning("disconnection to Autoscoper is in progress")
-            return
-        self.TcpSocket.disconnectFromHost()
+        self.AutoscoperSocket.closeConnection()
+        time.sleep(0.5)
+        self.AutoscoperSocket = None
         logging.info("Autoscoper is disconnected from 3DSlicer")
 
-    def startAutoscoper(self, environmentPath, executablePath):
+    def startAutoscoper(self, executablePath):
         """Start Autoscoper executable in a new process
 
         This call waits the process has been started and returns.
         """
-        if not os.path.exists(environmentPath):
-            logging.error("Specified environment %s does not exist" % environmentPath)
-            return
-
         if not os.path.exists(executablePath):
             logging.error("Specified executable %s does not exist" % executablePath)
             return
@@ -434,16 +525,15 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             finally:
                 os.chdir(currentDirectory)
 
-        envDir = os.path.dirname(environmentPath)
-        with changeCurrentDir(envDir):
+        with changeCurrentDir(os.path.dirname(executablePath)):
             logging.info("Starting Autoscoper %s" % executablePath)
-            self.AutoscoperProcess.start(
-                "cmd.exe", ["/k ", environmentPath, executablePath]
-            )
-            # self.AutoscoperProcess.start(program=environmentPath, arguments=[executablePath])
+            self.AutoscoperProcess.setProcessEnvironment(self.AutoscoperEnvironment)
+            self.AutoscoperProcess.start(executablePath)
             self.AutoscoperProcess.waitForStarted()
 
         slicer.app.processEvents()
+
+        time.sleep(2)  # wait for autoscoper to boot up before connecting
 
         self.connectToAutoscoper()
 
@@ -453,132 +543,16 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             logging.error("Autoscoper executable is not running")
             return
 
+        if self.AutoscoperSocket:
+            self.disconnectFromAutoscoper()
         if force:
             self.AutoscoperProcess.kill()
         else:
             self.AutoscoperProcess.terminate()
 
-    def _displaySocketError(self, sockerError):
-        logging.error("The following error occurred: %s" % self.TcpSocket.errorString())
+        self.isAutoscoperOpen = False
 
-    @contextlib.contextmanager
-    def _streamToAutoscoper(self):
-        """Yield datastream for sending data to Autoscoper."""
-        try:
-            data = qt.QByteArray()
-            stream = qt.QDataStream(data, qt.QIODevice.WriteOnly)
-            stream.setByteOrder(qt.QSysInfo.ByteOrder)
-            yield stream
-        finally:
-            self.TcpSocket.write(data)
-
-    def _waitForAutoscoper(self, methodId, msecs=10000):
-        """Block current process waiting for Autoscoper to finish executing a method."""
-        self.TcpSocket.waitForReadyRead(msecs)
-        if self.StreamFromAutoscoper.readUInt8() != methodId:
-            logging.error("unexpected results")
-
-    @contextlib.contextmanager
-    def _streamFromAutoscoper(self, methodId, msecs=10000):
-        """Yield datastream for receiving data from Autoscoper after current method finishes."""
-        self._waitForAutoscoper(methodId, msecs)
-        yield self.StreamFromAutoscoper
-
-    def _checkAutoscoperConnection(method):
-        """Decorator to check that Autoscoper process is ready."""
-
-        from functools import wraps
-
-        @wraps(method)
-        def wrapped(self, *method_args, **method_kwargs):
-
-            if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
-                raise RuntimeError("Autoscoper connection is not established")
-
-            return method(self, *method_args, **method_kwargs)
-
-        return wrapped
-
-    @_checkAutoscoperConnection
-    def loadTrial(self, filename):
-        """Load trial in Autoscoper"""
-        autoscoperMethodId = 1
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-            stream.writeRawData(filename.encode("latin1"))
-
-        self._waitForAutoscoper(autoscoperMethodId)
-
-    @_checkAutoscoperConnection
-    def loadTrackingDataVolume(self):
-        """Load tracking data in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def saveTrackingDataVolume(self):
-        """Save tracking data in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def loadFilterSettings(self):
-        """Load filter settings in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def setFrame(self):
-        """Set frame in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def getPose(self):
-        """Get pose from Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def setPose(self):
-        """Set pose in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def getNormalizedCrossCorrelation(self):
-        """Get normalized cross-correlation (NCC) from Autoscoper"""
-        autoscoperMethodId = 8
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-
-        with self._streamFromAutoscoper(autoscoperMethodId) as stream:
-            length = stream.readUInt8()
-            return [stream.readDouble() for _ in range(length)]
-
-    @_checkAutoscoperConnection
-    def setBackground(self, threshold):
-        """Set background in Autoscoper"""
-        autoscoperMethodId = 9
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-            stream.writeDouble(threshold)
-
-        self._waitForAutoscoper(autoscoperMethodId)
-
-    @_checkAutoscoperConnection
-    def optimizeFrame(self):
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def saveFullDRRImage(self):
-        autoscoperMethodId = 12
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-
-        self._waitForAutoscoper(autoscoperMethodId)
-
-    def process(
-        self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True
-    ):
+    def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
         """
         Run the processing algorithm.
         Can be used without GUI widget.
@@ -615,9 +589,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         slicer.mrmlScene.RemoveNode(cliNode)
 
         stopTime = time.time()
-        logging.info(
-            "Processing completed in {0:.2f} seconds".format(stopTime - startTime)
-        )
+        logging.info("Processing completed in {0:.2f} seconds".format(stopTime - startTime))
 
 
 #
