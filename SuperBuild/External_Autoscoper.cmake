@@ -25,7 +25,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_REPOSITORY
-    "$https://github.com/BrownBiomechanics/Autoscoper.git"
+    "https://github.com/BrownBiomechanics/Autoscoper.git"
     QUIET
   )
 

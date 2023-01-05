@@ -6,7 +6,7 @@ project(SlicerAutoscoperM)
 # Extension meta-information
 set(EXTENSION_HOMEPAGE "https://www.slicer.org/wiki/Documentation/Nightly/Extensions/SlicerAutoscoperM")
 set(EXTENSION_CATEGORY "Tracking")
-set(EXTENSION_CONTRIBUTORS "Bardiya Akhbari (Brown University), Amy Morton (Brown University)")
+set(EXTENSION_CONTRIBUTORS "Anthony Lombardi (Kitware), Bardiya Akhbari (Brown University), Amy Morton (Brown University), Beatriz Paniagua (Kitware), Jean-Christophe Fillion-Robin (Kitware)")
 set(EXTENSION_DESCRIPTION "SlicerAutoscoperM is a 2D to 3D image registration multi-modal software developed as a tool to investigate intra-articular joint motion during dynamic tasks.")
 set(EXTENSION_ICONURL "./SlicerAutoscoperM.png")
 set(EXTENSION_SCREENSHOTURLS "http://www.example.com/Slicer/Extensions/SlicerAutoscoperM/Screenshots/1.png")
@@ -33,7 +33,11 @@ endif()
 #-----------------------------------------------------------------------------
 # Extension modules
 ## NEXT_MODULE
-add_subdirectory(AutoscoperConnect)
+if(APPLE)
+  add_subdirectory(AutoscoperMStub)
+  return()
+endif()
+add_subdirectory(AutoscoperM)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
