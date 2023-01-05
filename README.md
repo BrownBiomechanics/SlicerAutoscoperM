@@ -10,7 +10,7 @@ with [Autoscoper][] for image-based 3D motion tracking of skeletal structures.
 
 | Name | Description |
 |------|-------------|
-| [AutoscoperConnect](AutoscoperConnect) | Allows to communicate with the Autoscoper process over a TCP connecion. |
+| [AutoscoperM](AutoscoperM) | Allows to communicate with the Autoscoper process over a TCP connecion. |
 | `AutoscoperMockServer` | Standalone executable implementing a mock Autoscoper TCP server. |
 
 _:warning: This extension is in early development statge. Its content, API and behavior may change at any time. We mean it!_

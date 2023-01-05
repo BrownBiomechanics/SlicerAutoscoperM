@@ -19,7 +19,7 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
-add_subdirectory(AutoscoperConnect)
+add_subdirectory(AutoscoperM)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------

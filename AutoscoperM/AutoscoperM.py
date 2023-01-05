@@ -7,18 +7,18 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 #
-# AutoscoperConnect
+# AutoscoperM
 #
 
 
-class AutoscoperConnect(ScriptedLoadableModule):
+class AutoscoperM(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
     """
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "AutoscoperConnect"  # TODO: make this more human readable by adding spaces
+        self.parent.title = "AutoscoperM"  # TODO: make this more human readable by adding spaces
         self.parent.categories = [
             "Tracking"
         ]  # TODO: set categories (folders where the module shows up in the module selector)
@@ -29,7 +29,7 @@ class AutoscoperConnect(ScriptedLoadableModule):
         # TODO: update with short description of the module and a link to online module documentation
         self.parent.helpText = """
 This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#AutoscoperConnect">module documentation</a>.
+See more information in <a href="https://github.com/organization/projectname#AutoscoperM">module documentation</a>.
 """
         # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = """
@@ -60,45 +60,45 @@ def registerSampleData():
     # To ensure that the source code repository remains small (can be downloaded and installed quickly)
     # it is recommended to store data sets that are larger than a few MB in a Github release.
 
-    # AutoscoperConnect1
+    # AutoscoperM1
     SampleData.SampleDataLogic.registerCustomSampleDataSource(
         # Category and sample name displayed in Sample Data module
-        category="AutoscoperConnect",
-        sampleName="AutoscoperConnect1",
+        category="AutoscoperM",
+        sampleName="AutoscoperM1",
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "AutoscoperConnect1.png"),
+        thumbnailFileName=os.path.join(iconsPath, "AutoscoperM1.png"),
         # Download URL and target file name
         uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
-        fileNames="AutoscoperConnect1.nrrd",
+        fileNames="AutoscoperM1.nrrd",
         # Checksum to ensure file integrity. Can be computed by this command:
         #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
         checksums="SHA256:998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         # This node name will be used when the data set is loaded
-        nodeNames="AutoscoperConnect1",
+        nodeNames="AutoscoperM1",
     )
 
-    # AutoscoperConnect2
+    # AutoscoperM2
     SampleData.SampleDataLogic.registerCustomSampleDataSource(
         # Category and sample name displayed in Sample Data module
-        category="AutoscoperConnect",
-        sampleName="AutoscoperConnect2",
-        thumbnailFileName=os.path.join(iconsPath, "AutoscoperConnect2.png"),
+        category="AutoscoperM",
+        sampleName="AutoscoperM2",
+        thumbnailFileName=os.path.join(iconsPath, "AutoscoperM2.png"),
         # Download URL and target file name
         uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
-        fileNames="AutoscoperConnect2.nrrd",
+        fileNames="AutoscoperM2.nrrd",
         checksums="SHA256:1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         # This node name will be used when the data set is loaded
-        nodeNames="AutoscoperConnect2",
+        nodeNames="AutoscoperM2",
     )
 
 
 #
-# AutoscoperConnectWidget
+# AutoscoperMWidget
 #
 
 
-class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """Uses ScriptedLoadableModuleWidget base class, available at:
     https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
     """
@@ -121,7 +121,7 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/AutoscoperConnect.ui"))
+        uiWidget = slicer.util.loadUI(self.resourcePath("UI/AutoscoperM.ui"))
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -132,7 +132,7 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
-        self.logic = AutoscoperConnectLogic()
+        self.logic = AutoscoperMLogic()
 
         # Connections
 
@@ -301,11 +301,11 @@ class AutoscoperConnectWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
 
 #
-# AutoscoperConnectLogic
+# AutoscoperMLogic
 #
 
 
-class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
+class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     """This class should implement all the actual
     computation done by your module.  The interface
     should be such that other python code can import
@@ -564,11 +564,11 @@ class AutoscoperConnectLogic(ScriptedLoadableModuleLogic):
 
 
 #
-# AutoscoperConnectTest
+# AutoscoperMTest
 #
 
 
-class AutoscoperConnectTest(ScriptedLoadableModuleTest):
+class AutoscoperMTest(ScriptedLoadableModuleTest):
     """
     This is the test case for your scripted module.
     Uses ScriptedLoadableModuleTest base class, available at:
@@ -582,9 +582,9 @@ class AutoscoperConnectTest(ScriptedLoadableModuleTest):
     def runTest(self):
         """Run as few or as many tests as needed here."""
         self.setUp()
-        self.test_AutoscoperConnect1()
+        self.test_AutoscoperM1()
 
-    def test_AutoscoperConnect1(self):
+    def test_AutoscoperM1(self):
         """Ideally you should have several levels of tests.  At the lowest level
         tests should exercise the functionality of the logic with different inputs
         (both valid and invalid).  At higher levels your tests should emulate the
@@ -603,7 +603,7 @@ class AutoscoperConnectTest(ScriptedLoadableModuleTest):
         import SampleData
 
         registerSampleData()
-        inputVolume = SampleData.downloadSample("AutoscoperConnect1")
+        inputVolume = SampleData.downloadSample("AutoscoperM1")
         self.delayDisplay("Loaded test data set")
 
         inputScalarRange = inputVolume.GetImageData().GetScalarRange()
@@ -615,7 +615,7 @@ class AutoscoperConnectTest(ScriptedLoadableModuleTest):
 
         # Test the module logic
 
-        logic = AutoscoperConnectLogic()
+        logic = AutoscoperMLogic()
 
         # Test algorithm with non-inverted threshold
         logic.process(inputVolume, outputVolume, threshold, True)
