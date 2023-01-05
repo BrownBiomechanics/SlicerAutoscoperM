@@ -14,8 +14,8 @@ if(${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${proj})
 endif()
 
 # Sanity checks
-if(DEFINED Foo_DIR AND NOT EXISTS ${Foo_DIR})
-  message(FATAL_ERROR "Foo_DIR [${Foo_DIR}] variable is defined but corresponds to nonexistent directory")
+if(DEFINED Autoscoper_DIR AND NOT EXISTS ${Autoscoper_DIR})
+  message(FATAL_ERROR "Autoscoper_DIR [${Autoscoper_DIR}] variable is defined but corresponds to nonexistent directory")
 endif()
 
 if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${proj})
@@ -25,7 +25,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_REPOSITORY
-    "${EP_GIT_PROTOCOL}://github.com/BrownBiomechanics/Autoscoper.git"
+    "https://github.com/BrownBiomechanics/Autoscoper.git"
     QUIET
   )
 
@@ -59,8 +59,8 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       # XXX The following two variables should be updated to match the
       #     requirements of a real CMake based external project
       # XXX Then, this comment and the one above should be removed. Really.
-      -DFOO_INSTALL_RUNTIME_DIR:STRING=${Slicer_INSTALL_THIRDPARTY_LIB_DIR}
-      -DFOO_INSTALL_LIBRARY_DIR:STRING=${Slicer_INSTALL_THIRDPARTY_LIB_DIR}
+      -DAutoscoper_INSTALL_RUNTIME_DIR:STRING=${Slicer_INSTALL_THIRDPARTY_LIB_DIR}
+      -DAutoscoper_INSTALL_LIBRARY_DIR:STRING=${Slicer_INSTALL_THIRDPARTY_LIB_DIR}
       # Output directories for CLIs
       #-DSlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY:PATH=${SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY}
       #-DSlicerExecutionModel_DEFAULT_CLI_RUNTIME_LIBRARY_DIRECTORY:PATH=${SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY}
