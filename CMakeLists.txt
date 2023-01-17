@@ -35,9 +35,10 @@ endif()
 ## NEXT_MODULE
 if(APPLE)
   add_subdirectory(AutoscoperMStub)
-  return()
+else()
+  add_subdirectory(AutoscoperM)
 endif()
-add_subdirectory(AutoscoperM)
+
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
