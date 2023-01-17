@@ -4,12 +4,12 @@ project(SlicerAutoscoperM)
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_HOMEPAGE "https://www.slicer.org/wiki/Documentation/Nightly/Extensions/SlicerAutoscoperM")
+set(EXTENSION_HOMEPAGE "https://autoscoperm.slicer.org/")
 set(EXTENSION_CATEGORY "Tracking")
 set(EXTENSION_CONTRIBUTORS "Anthony Lombardi (Kitware), Bardiya Akhbari (Brown University), Amy Morton (Brown University), Beatriz Paniagua (Kitware), Jean-Christophe Fillion-Robin (Kitware)")
 set(EXTENSION_DESCRIPTION "SlicerAutoscoperM is a 2D to 3D image registration multi-modal software developed as a tool to investigate intra-articular joint motion during dynamic tasks.")
 set(EXTENSION_ICONURL "./SlicerAutoscoperM.png")
-set(EXTENSION_SCREENSHOTURLS "http://www.example.com/Slicer/Extensions/SlicerAutoscoperM/Screenshots/1.png")
+set(EXTENSION_SCREENSHOTURLS "https://github.com/BrownBiomechanics/SlicerAutoscoperM/blob/main/AutoscoperMainWindow.png https://github.com/BrownBiomechanics/SlicerAutoscoperM/blob/main/SlicerAutoscoperUI.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
