@@ -16,6 +16,11 @@ with [Autoscoper][] for image-based 3D motion tracking of skeletal structures.
 
 _:warning: This extension is in early development statge. Its content, API and behavior may change at any time. We mean it!_
 
+## Python Linting
+
+This project uses pre-commit and black for linting.
+Install pre-commit with `pip install pre-commit` and setup with `pre-commit install`.
+Linting will occur automatically when committing, or can be done explicitly with `pre-commit run --all-files`.
 
 ## Resources
 
