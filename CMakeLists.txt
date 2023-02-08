@@ -36,6 +36,7 @@ endif()
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(AutoscoperM)
+add_subdirectory(AutoscoperMGenerateTiffStacks)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
