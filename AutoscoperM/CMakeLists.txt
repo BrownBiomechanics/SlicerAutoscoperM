@@ -4,6 +4,10 @@ set(MODULE_NAME AutoscoperM)
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
+  ${MODULE_NAME}Lib/__init__.py
+  ${MODULE_NAME}Lib/IO.py
+  ${MODULE_NAME}Lib/RadiographGeneration.py
+  ${MODULE_NAME}Lib/SubVolumeExtraction.py
   )
 
 set(MODULE_PYTHON_RESOURCES

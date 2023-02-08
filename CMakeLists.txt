@@ -10,7 +10,7 @@ set(EXTENSION_CONTRIBUTORS "Anthony Lombardi (Kitware), Amy Morton (Brown Univer
 set(EXTENSION_DESCRIPTION "SlicerAutoscoperM is an extension for 3D Slicer for 2D-3D image registration integrating with Autoscoper for image-based 3D motion tracking of skeletal structures.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/BrownBiomechanics/SlicerAutoscoperM/main/SlicerAutoscoperM.png")
 set(EXTENSION_SCREENSHOTURLS "https://github.com/BrownBiomechanics/SlicerAutoscoperM/releases/download/docs-resources/AutoscoperMainWindow.png")
-set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
+set(EXTENSION_DEPENDS Sandbox SegmentEditorExtraEffects)
 set(EXTENSION_BUILD_SUBDIRECTORY inner-build)
 
 set(SUPERBUILD_TOPLEVEL_PROJECT inner)
