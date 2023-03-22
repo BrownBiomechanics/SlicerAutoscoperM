@@ -103,6 +103,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Buttons
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        self.ui.closeAutoscoper.connect("clicked(bool)", self.logic.stopAutoscoper)
+        self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -231,26 +233,25 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Run processing when user clicks "Apply" button.
         """
-        executablePath = os.path.join(self.ui.autoscoperRootPath.directory, "autoscoper")
-        if slicer.app.os == "win":
-            executablePath = executablePath + ".exe"
+        import shutil  # noqa: F401
+
+        executablePath = shutil.which("autoscoper")
+        if not executablePath:
+            logging.error("autoscoper executable not found")
+            return
         self.logic.startAutoscoper(executablePath)
 
-        self.sampleDir = os.path.join(self.ui.autoscoperRootPath.directory, "sample_data")
-
-        if self.logic.isAutoscoperOpen == True:
-            # read config file
-            self.readConfigFile()
-
-    def readConfigFile(self):
+    def onLoadConfig(self):
         configPath = self.ui.configSelector.currentPath
-        if configPath.endswith(".cfg"):
-            self.logic.loadTrial(configPath)
-        else:
-            configPath = os.path.join(self.sampleDir, "wrist.cfg")
-            self.logic.loadTrial(configPath)
+        if not configPath.endswith(".cfg"):
+            logging.error(f"Failed to load config file: {configPath} is expected to have .cfg extension")
+            return
 
-        print("Loading cfg file: " + configPath)
+        if not os.path.exists(configPath):
+            logging.error(f"Failed to load config file: {configPath} not found")
+            return
+
+        self.logic.AutoscoperSocket.loadTrial(configPath)
 
 
 #
@@ -277,7 +278,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         self.AutoscoperProcess = qt.QProcess()
         self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
         self.AutoscoperSocket = None
-        self.isAutoscoperOpen = False
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -325,8 +325,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             logging.error("Autoscoper executable already started")
             return
 
-        self.isAutoscoperOpen = True
-
         @contextlib.contextmanager
         def changeCurrentDir(directory):
             currentDirectory = os.getcwd()
@@ -340,7 +338,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         with changeCurrentDir(executableDirectory):
             logging.info("Starting Autoscoper %s" % executablePath)
-            # self.AutoscoperProcess.start("cmd.exe", ["/K ", executablePath])
             self.AutoscoperProcess.start(executablePath)
             self.AutoscoperProcess.waitForStarted()
 
@@ -358,16 +355,11 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         if self.AutoscoperSocket:
             self.disconnectFromAutoscoper()
+
         if force:
             self.AutoscoperProcess.kill()
         else:
             self.AutoscoperProcess.terminate()
-
-        self.isAutoscoperOpen = False
-
-    def loadTrial(self, filename):
-        """Load trial in Autoscoper"""
-        self.AutoscoperSocket.loadTrial(filename)
 
     def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
         """

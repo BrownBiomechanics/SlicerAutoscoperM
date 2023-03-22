@@ -12,6 +12,26 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QPushButton" name="applyButton">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="toolTip">
+      <string>Start the Autoscoper executable bundled in the extension.</string>
+     </property>
+     <property name="text">
+      <string>Launch Autoscoper</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="closeAutoscoper">
+     <property name="text">
+      <string>Close Autoscoper</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
       <string>Inputs</string>
@@ -34,34 +54,14 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>Autoscoper Root Dir</string>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="1">
-       <widget class="ctkDirectoryButton" name="autoscoperRootPath">
+       <widget class="QPushButton" name="loadConfig">
         <property name="text">
-         <string/>
+         <string>Load Config</string>
         </property>
        </widget>
       </item>
      </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="applyButton">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="toolTip">
-      <string>Run the algorithm.</string>
-     </property>
-     <property name="text">
-      <string>Launch Autoscoper</string>
-     </property>
     </widget>
    </item>
    <item>
@@ -85,11 +85,6 @@
    <extends>QWidget</extends>
    <header>ctkCollapsibleButton.h</header>
    <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>ctkDirectoryButton</class>
-   <extends>QWidget</extends>
-   <header>ctkDirectoryButton.h</header>
   </customwidget>
   <customwidget>
    <class>ctkPathLineEdit</class>
