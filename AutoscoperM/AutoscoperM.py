@@ -18,11 +18,11 @@ class AutoscoperM(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "AutoscoperM"  # TODO: make this more human readable by adding spaces
+        self.parent.title = "AutoscoperM"
         self.parent.categories = [
-            "Tracking"
-        ]  # TODO: set categories (folders where the module shows up in the module selector)
-        self.parent.dependencies = []  # TODO: add here list of module names that this module requires
+            "Tracking",
+        ]
+        self.parent.dependencies = []
         self.parent.contributors = [
             "Anthony Lombardi (Kitware)",
             "Amy M Morton (Brown University)",
