@@ -105,6 +105,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
         self.ui.closeAutoscoper.connect("clicked(bool)", self.logic.stopAutoscoper)
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
+        self.ui.saveTracking.connect("clicked(bool)", self.onSaveTracking)
+        self.ui.loadTracking.connect("clicked(bool)", self.onLoadTracking)
+        self.ui.startTrack.connect("clicked(bool)", self.onStartTrack)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -261,6 +264,88 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         self.logic.AutoscoperSocket.loadTrial(configPath)
+        frames = self.logic.AutoscoperSocket.getNumFrames()
+        volumes = self.logic.AutoscoperSocket.getNumVolumes()
+        self.ui.selectedVolume.maximum = volumes - 1
+        self.ui.trackingVolume.maximum = volumes - 1
+        self.ui.endFrame.maximum = frames - 1
+        self.ui.endFrame.value = frames - 1
+        self.ui.startFrame.maximum = frames - 1
+
+    def onSaveTracking(self):
+        trackingPath = self.ui.trackingSelector.currentPath
+        volume = self.ui.selectedVolume.value
+        if trackingPath.endswith(".tra"):
+            save_as_matrix = self.ui.matrixRadio.checked
+            save_as_rows = self.ui.rowRadio.checked
+            save_with_commas = self.ui.commaRadio.checked
+            convert_to_cm = self.ui.cmRadio.checked
+            convert_to_rad = self.ui.radRadio.checked
+            interpolate = self.ui.splineRadio.checked
+            self.logic.AutoscoperSocket.saveTracking(
+                volume,
+                trackingPath,
+                save_as_matrix,
+                save_as_rows,
+                save_with_commas,
+                convert_to_cm,
+                convert_to_rad,
+                interpolate,
+            )
+        else:
+            logging.info("Invalid tracking file")
+
+    def onLoadTracking(self):
+        trackingPath = self.ui.trackingSelector.currentPath
+        volume = self.ui.selectedVolume.value
+        if trackingPath.endswith(".tra") and os.path.exists(trackingPath):
+            is_maxtrix = self.ui.matrixRadio.checked
+            is_rows = self.ui.rowRadio.checked
+            has_commas = self.ui.commaRadio.checked
+            is_cm = self.ui.cmRadio.checked
+            is_rad = self.ui.radRadio.checked
+            is_spline = self.ui.splineRadio.checked
+            self.logic.AutoscoperSocket.loadTrackingData(
+                volume,
+                trackingPath,
+                is_maxtrix,
+                is_rows,
+                has_commas,
+                is_cm,
+                is_rad,
+                is_spline,
+            )
+        else:
+            logging.info("Invalid tracking file")
+
+    def onStartTrack(self):
+        volume = self.ui.trackingVolume.value
+        startFrame = self.ui.startFrame.value
+        endFrame = self.ui.endFrame.value
+        skipFrame = self.ui.skipFrame.value
+        reverse = self.ui.reverse.checked
+        optMethod = self.ui.downhillRadio.checked
+        refinements = self.ui.refinements.value
+        minLim = self.ui.minLim.value
+        maxLim = self.ui.maxLim.value
+        maxEpochs = self.ui.maxEpoch.value
+        maxStall = self.ui.maxStall.value
+        cf = self.ui.sadRadio.checked
+
+        self.ui.progressBar.value = 0
+
+        for frame in range(startFrame, endFrame, skipFrame):
+            self.logic.AutoscoperSocket.setFrame(frame)
+            if reverse:
+                frame = endFrame - (frame - startFrame)
+            if frame != startFrame:
+                pose = self.logic.AutoscoperSocket.getPose(volume, frame - 1)
+                self.logic.AutoscoperSocket.setPose(volume, frame, pose)
+            self.ui.progressBar.value = ((frame - startFrame + 1) / (endFrame - startFrame)) * 100
+            self.ui.progressBar.repaint()
+            self.logic.AutoscoperSocket.optimizeFrame(
+                volume, frame, refinements, maxEpochs, minLim, maxLim, maxStall, skipFrame, optMethod, cf
+            )
 
 
 #
