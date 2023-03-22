@@ -239,7 +239,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def readConfigFile(self):
         configPath = self.ui.configSelector.currentPath
-        if configPath.endswith == ".cfg":
+        if configPath.endswith(".cfg"):
             self.logic.loadTrial(configPath)
         else:
             configPath = os.path.join(self.sampleDir, "wrist.cfg")
