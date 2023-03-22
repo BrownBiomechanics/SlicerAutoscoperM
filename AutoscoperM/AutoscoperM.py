@@ -1,5 +1,6 @@
 import contextlib
 import os
+import time
 import unittest
 import logging
 import vtk, qt, ctk, slicer
@@ -275,11 +276,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         self.AutoscoperProcess = qt.QProcess()
         self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
-        self.TcpSocket = qt.QTcpSocket()
-        self.TcpSocket.connect("error(QAbstractSocket::SocketError)", self._displaySocketError)
-        self.StreamFromAutoscoper = qt.QDataStream()
-        self.StreamFromAutoscoper.setByteOrder(qt.QSysInfo.ByteOrder)
-        self.StreamFromAutoscoper.setDevice(self.TcpSocket)
+        self.AutoscoperSocket = None
         self.isAutoscoperOpen = False
 
     def setDefaultParameters(self, parameterNode):
@@ -293,25 +290,26 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     def connectToAutoscoper(self):
         """Connect to a running instance of Autoscoper."""
-        if self.TcpSocket.state() == qt.QAbstractSocket.ConnectedState:
+
+        try:
+            from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
+        except ImportError:
+            slicer.util.pip_install("PyAutoscoper~=1.1.0")
+
+        if self.AutoscoperSocket:
             logging.warning("connection to Autoscoper is already established")
             return
-        if self.TcpSocket.state() != qt.QAbstractSocket.UnconnectedState:
-            logging.warning("connection to Autoscoper is in progress")
-            return
-        self.TcpSocket.connectToHost("127.0.0.1", 30007)
-        self.TcpSocket.waitForConnected(5000)
+        self.AutoscoperSocket = AutoscoperConnection()
         logging.info("connection to Autoscoper is established")
 
     def disconnectFromAutoscoper(self):
         """Disconnect from a running instance of Autoscoper."""
-        if self.TcpSocket.state() == qt.QAbstractSocket.UnconnectedState:
+        if self.AutoscoperSocket is None:
             logging.warning("connection to Autoscoper is not established")
             return
-        if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
-            logging.warning("disconnection to Autoscoper is in progress")
-            return
-        self.TcpSocket.disconnectFromHost()
+        self.AutoscoperSocket.closeConnection()
+        time.sleep(0.5)
+        self.AutoscoperSocket = None
         logging.info("Autoscoper is disconnected from 3DSlicer")
 
     def startAutoscoper(self, executablePath):
@@ -348,6 +346,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         slicer.app.processEvents()
 
+        time.sleep(2)  # wait for autoscoper to boot up before connecting
+
         self.connectToAutoscoper()
 
     def stopAutoscoper(self, force=True):
@@ -356,128 +356,18 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             logging.error("Autoscoper executable is not running")
             return
 
+        if self.AutoscoperSocket:
+            self.disconnectFromAutoscoper()
         if force:
             self.AutoscoperProcess.kill()
         else:
             self.AutoscoperProcess.terminate()
 
-    def _displaySocketError(self, sockerError):
-        logging.error("The following error occurred: %s" % self.TcpSocket.errorString())
+        self.isAutoscoperOpen = False
 
-    @contextlib.contextmanager
-    def _streamToAutoscoper(self):
-        """Yield datastream for sending data to Autoscoper."""
-        try:
-            data = qt.QByteArray()
-            stream = qt.QDataStream(data, qt.QIODevice.WriteOnly)
-            stream.setByteOrder(qt.QSysInfo.ByteOrder)
-            yield stream
-        finally:
-            self.TcpSocket.write(data)
-
-    def _waitForAutoscoper(self, methodId, msecs=10000):
-        """Block current process waiting for Autoscoper to finish executing a method."""
-        self.TcpSocket.waitForReadyRead(msecs)
-        if self.StreamFromAutoscoper.readUInt8() != methodId:
-            logging.error("unexpected results")
-
-    @contextlib.contextmanager
-    def _streamFromAutoscoper(self, methodId, msecs=10000):
-        """Yield datastream for receiving data from Autoscoper after current method finishes."""
-        self._waitForAutoscoper(methodId, msecs)
-        yield self.StreamFromAutoscoper
-
-    def _checkAutoscoperConnection(method):
-        """Decorator to check that Autoscoper process is ready."""
-
-        from functools import wraps
-
-        @wraps(method)
-        def wrapped(self, *method_args, **method_kwargs):
-
-            if self.TcpSocket.state() != qt.QAbstractSocket.ConnectedState:
-                raise RuntimeError("Autoscoper connection is not established")
-
-            return method(self, *method_args, **method_kwargs)
-
-        return wrapped
-
-    @_checkAutoscoperConnection
     def loadTrial(self, filename):
         """Load trial in Autoscoper"""
-        autoscoperMethodId = 1
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-            stream.writeRawData(filename.encode("latin1"))
-
-        self._waitForAutoscoper(autoscoperMethodId)
-
-    @_checkAutoscoperConnection
-    def loadTrackingDataVolume(self):
-        """Load tracking data in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def saveTrackingDataVolume(self):
-        """Save tracking data in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def loadFilterSettings(self):
-        """Load filter settings in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def setFrame(self):
-        """Set frame in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def getPose(self):
-        """Get pose from Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def setPose(self):
-        """Set pose in Autoscoper"""
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def getNormalizedCrossCorrelation(self):
-        """Get normalized cross-correlation (NCC) from Autoscoper"""
-        autoscoperMethodId = 8
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-
-        with self._streamFromAutoscoper(autoscoperMethodId) as stream:
-            length = stream.readUInt8()
-            return [stream.readDouble() for _ in range(length)]
-
-    @_checkAutoscoperConnection
-    def setBackground(self, threshold):
-        """Set background in Autoscoper"""
-        autoscoperMethodId = 9
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-            stream.writeDouble(threshold)
-
-        self._waitForAutoscoper(autoscoperMethodId)
-
-    @_checkAutoscoperConnection
-    def optimizeFrame(self):
-        logging.error("not implemented")
-
-    @_checkAutoscoperConnection
-    def saveFullDRRImage(self):
-        autoscoperMethodId = 12
-
-        with self._streamToAutoscoper() as stream:
-            stream.writeUInt8(autoscoperMethodId)
-
-        self._waitForAutoscoper(autoscoperMethodId)
+        self.AutoscoperSocket.loadTrial(filename)
 
     def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
         """
