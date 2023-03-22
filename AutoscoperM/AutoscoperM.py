@@ -24,8 +24,12 @@ class AutoscoperM(ScriptedLoadableModule):
         ]  # TODO: set categories (folders where the module shows up in the module selector)
         self.parent.dependencies = []  # TODO: add here list of module names that this module requires
         self.parent.contributors = [
-            "Bardiya Akhbari and Amy M Morton (Brown University)"
-        ]  # TODO: replace with "Firstname Lastname (Organization)"
+            "Anthony Lombardi (Kitware)",
+            "Amy M Morton (Brown University)",
+            "Bardiya Akhbari (Brown University)",
+            "Beatriz Paniagua (Kitware)",
+            "Jean-Christophe Fillion-Robin (Kitware)",
+        ]
         # TODO: update with short description of the module and a link to online module documentation
         self.parent.helpText = """
 This is an example of scripted loadable module bundled in an extension.
