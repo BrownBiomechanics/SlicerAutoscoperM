@@ -233,6 +233,13 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Run processing when user clicks "Apply" button.
         """
+        import sys  # noqa: F401
+
+        if sys.platform == "darwin":
+            slicer.util.messageBox("AutoscoperM is not supported on this platform.<br>"
+                "See <a href='https://autoscoperm.slicer.org'>https://autoscoperm.slicer.org</a> for details.")
+            return
+
         import shutil  # noqa: F401
 
         executablePath = shutil.which("autoscoper")
