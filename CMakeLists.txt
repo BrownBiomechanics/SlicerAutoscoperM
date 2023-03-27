@@ -7,7 +7,7 @@ project(SlicerAutoscoperM)
 set(EXTENSION_HOMEPAGE "https://autoscoperm.slicer.org/")
 set(EXTENSION_CATEGORY "Tracking")
 set(EXTENSION_CONTRIBUTORS "Anthony Lombardi (Kitware), Amy Morton (Brown University), Bardiya Akhbari (Brown University), Beatriz Paniagua (Kitware), Jean-Christophe Fillion-Robin (Kitware)")
-set(EXTENSION_DESCRIPTION "SlicerAutoscoperM is a 2D to 3D image registration multi-modal software developed as a tool to investigate intra-articular joint motion during dynamic tasks.")
+set(EXTENSION_DESCRIPTION "SlicerAutoscoperM is an extension for 3D Slicer for 2D-3D image registration integrating with Autoscoper for image-based 3D motion tracking of skeletal structures.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/BrownBiomechanics/SlicerAutoscoperM/main/SlicerAutoscoperM.png")
 set(EXTENSION_SCREENSHOTURLS "https://github.com/BrownBiomechanics/SlicerAutoscoperM/releases/download/docs-resources/AutoscoperMainWindow.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
