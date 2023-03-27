@@ -295,6 +295,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
         except ImportError:
             slicer.util.pip_install("PyAutoscoper~=1.1.0")
+            from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
 
         if self.AutoscoperSocket:
             logging.warning("connection to Autoscoper is already established")
