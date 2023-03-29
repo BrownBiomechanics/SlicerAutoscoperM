@@ -31,14 +31,28 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_TAG
-    "e0453146ab1ee401552192352d66b39c61caed79"
+    "60b3d6ec0a5e4b796ef97baaa7a3a9b0351280e7"
     QUIET
   )
+
+  set(EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS)
 
   # Workaround improper generation of target file when destination associated
   # with "install(EXPORT <export-name> DESTINATION <dir>)" start with "./"
   if(NOT APPLE)
     set(Slicer_INSTALL_THIRDPARTY_LIB_DIR ${Slicer_THIRDPARTY_LIB_DIR})
+  endif()
+
+  if(UNIX AND NOT APPLE)
+    if(NOT DEFINED OpenGL_GL_PREFERENCE)
+      set(OpenGL_GL_PREFERENCE "LEGACY")
+    endif()
+    if(NOT "${OpenGL_GL_PREFERENCE}" MATCHES "^(LEGACY|GLVND)$")
+      message(FATAL_ERROR "OpenGL_GL_PREFERENCE variable is expected to be set to LEGACY or GLVND")
+    endif()
+    list(APPEND EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS
+      -DOpenGL_GL_PREFERENCE:STRING=${OpenGL_GL_PREFERENCE}
+      )
   endif()
 
   ExternalProject_Add(${proj}
@@ -71,7 +85,8 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       -DQt5_DIR:PATH=${Qt5_DIR}
       # Dependencies
       # NA
-      INSTALL_COMMAND ""
+      ${EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS}
+    INSTALL_COMMAND ""
     DEPENDS
       ${${proj}_DEPENDS}
     )
