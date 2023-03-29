@@ -18,8 +18,18 @@ set(proj ${SUPERBUILD_TOPLEVEL_PROJECT})
 
 # Project dependencies
 set(${proj}_DEPENDS
-   Autoscoper
    )
+
+set(_autoscoper_supported TRUE)
+if(APPLE)
+  set(_autoscoper_supported FALSE)
+endif()
+
+if(_autoscoper_supported)
+  list(APPEND ${proj}_DEPENDS
+    Autoscoper
+    )
+endif()
 
 ExternalProject_Include_Dependencies(${proj}
   PROJECT_VAR proj

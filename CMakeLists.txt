@@ -40,7 +40,9 @@ add_subdirectory(AutoscoperM)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
-list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${Autoscoper_DIR};Autoscoper;ALL;/")
+if(DEFINED Autoscoper_DIR)
+  list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${Autoscoper_DIR};Autoscoper;ALL;/")
+endif()
 set(${EXTENSION_NAME}_CPACK_INSTALL_CMAKE_PROJECTS "${EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS}" CACHE STRING "List of external projects to install" FORCE)
 
 #-----------------------------------------------------------------------------
