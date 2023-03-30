@@ -236,8 +236,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         import sys  # noqa: F401
 
         if sys.platform == "darwin":
-            slicer.util.messageBox("AutoscoperM is not supported on this platform.<br>"
-                "See <a href='https://autoscoperm.slicer.org'>https://autoscoperm.slicer.org</a> for details.")
+            slicer.util.messageBox(
+                "AutoscoperM is not supported on this platform.<br>"
+                "See <a href='https://autoscoperm.slicer.org'>https://autoscoperm.slicer.org</a> for details."
+            )
             return
 
         import shutil  # noqa: F401
