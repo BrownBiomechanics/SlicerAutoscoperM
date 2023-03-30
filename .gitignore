@@ -1,2 +1,12 @@
-AutoscoperM/__pycache__/*
+# macOS
+.DS_Store
 
+# Python
+__pycache__/
+
+# Qt Creator
+CMakeLists.txt.user
+
+# Visual Studio
+.vs/
+CMakeSettings.json
