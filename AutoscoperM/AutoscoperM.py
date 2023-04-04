@@ -348,7 +348,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         with changeCurrentDir(executableDirectory):
             logging.info("Starting Autoscoper %s" % executablePath)
-            self.AutoscoperProcess.start(executablePath)
+            self.AutoscoperProcess.setProgram(executablePath)
+            self.AutoscoperProcess.start()
             self.AutoscoperProcess.waitForStarted()
 
         slicer.app.processEvents()
