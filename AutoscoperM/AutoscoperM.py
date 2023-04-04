@@ -306,9 +306,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             slicer.util.pip_install("PyAutoscoper~=1.1.0")
             from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
 
-        if self.AutoscoperSocket:
-            logging.warning("connection to Autoscoper is already established")
-            return
         self.AutoscoperSocket = AutoscoperConnection()
         logging.info("connection to Autoscoper is established")
 
@@ -358,7 +355,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         self.connectToAutoscoper()
 
-    def stopAutoscoper(self, force=True):
+    def stopAutoscoper(self):
         """Stop Autoscoper process"""
         if self.AutoscoperProcess.state() == qt.QProcess.NotRunning:
             logging.error("Autoscoper executable is not running")
@@ -367,10 +364,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         if self.AutoscoperSocket:
             self.disconnectFromAutoscoper()
 
-        if force:
-            self.AutoscoperProcess.kill()
-        else:
-            self.AutoscoperProcess.terminate()
+        self.AutoscoperProcess.kill()
 
     def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
         """
