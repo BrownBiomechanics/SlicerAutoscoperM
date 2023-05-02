@@ -1,9 +1,14 @@
 import contextlib
+import glob
+import logging
 import os
 import time
-import unittest
-import logging
-import vtk, qt, ctk, slicer
+import zipfile
+
+import qt
+import vtk
+
+import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
@@ -43,7 +48,95 @@ and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR0132
 """
 
         # Additional initialization step after application startup is complete
-        # NA
+        slicer.app.connect("startupCompleted()", registerSampleData)
+
+
+#
+# Register sample data sets in Sample Data module
+#
+
+
+def downloadAndExtract(source):
+    import SampleData
+
+    SampleData.SampleDataLogic().logMessage("Downloading %s...\n" % (source.uris[0]))
+    SampleData.SampleDataLogic().downloadFromSource(source)
+    SampleData.SampleDataLogic().logMessage("Extracting %s...\n" % (source.fileNames[0]))
+    cache_dir = slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory()
+
+    # Unzip the downloaded file
+    with zipfile.ZipFile(os.path.join(cache_dir, source.fileNames[0]), "r") as zip_ref:
+        zip_ref.extractall(cache_dir)
+
+    # Remove the zip file
+    os.remove(os.path.join(cache_dir, source.fileNames[0]))
+    SampleData.SampleDataLogic().logMessage("Done\n")
+
+
+def registerSampleData():
+    """
+    Add data sets to Sample Data module.
+    """
+    import SampleData
+
+    iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+
+    # Sample Wrist data set
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        # Category and sample name displayed in Sample Data module
+        category="Tracking",
+        sampleName="AutoscoperM - Wrist BVR",
+        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        thumbnailFileName=os.path.join(iconsPath, "Wrist.png"),
+        # Download URL and target file name
+        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Wrist.zip",
+        fileNames="2023-05-25-Wrist.zip",
+        # Checksum to ensure file integrity. Can be computed by this command:
+        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
+        checksums="SHA256:6c5a8bc2761845de557ef3a7dda2afaa32e8fd3588ab592f16ce67ec7ff6d87e",
+        # This node name will be used when the data set is loaded
+        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
+        customDownloader=downloadAndExtract,
+    )
+
+    # Sample Knee data set
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        # Category and sample name displayed in Sample Data module
+        category="Tracking",
+        sampleName="AutoscoperM - Knee BVR",
+        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        thumbnailFileName=os.path.join(iconsPath, "Knee.png"),
+        # Download URL and target file name
+        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Knee.zip",
+        fileNames="2023-05-25-Knee.zip",
+        # Checksum to ensure file integrity. Can be computed by this command:
+        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
+        checksums="SHA256:5e5a1f69d195b95de4f172192e060076eb0c52c0c1fe8be659eec69d29feeafa",
+        # This node name will be used when the data set is loaded
+        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
+        customDownloader=downloadAndExtract,
+    )
+
+    # Sample Ankle data set
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        # Category and sample name displayed in Sample Data module
+        category="Tracking",
+        sampleName="AutoscoperM - Ankle BVR",
+        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        thumbnailFileName=os.path.join(iconsPath, "Ankle.png"),
+        # Download URL and target file name
+        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Ankle.zip",
+        fileNames="2023-05-25-Ankle.zip",
+        # Checksum to ensure file integrity. Can be computed by this command:
+        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
+        checksums="SHA256:1f23cbc58a0457681d37a234154f83444addd1979835706f5d5718819bba822c",
+        # This node name will be used when the data set is loaded
+        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
+        customDownloader=downloadAndExtract,
+    )
 
 
 #
@@ -105,6 +198,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
         self.ui.closeAutoscoper.connect("clicked(bool)", self.logic.stopAutoscoper)
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
+
+        # Sample Data Buttons
+        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Wrist"))
+        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Knee"))
+        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Ankle"))
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -263,6 +361,50 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         self.logic.AutoscoperSocket.loadTrial(configPath)
+
+    def onSampleDataButtonClicked(self, dataType):
+
+        # Ensure that the sample data is installed
+        slicerCacheDir = slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory()
+        sampleDataDir = os.path.join(slicerCacheDir, dataType)
+        if not os.path.exists(sampleDataDir):
+            logging.error(
+                f"Sample data not found. Please install the {dataType} sample data set using the Sample Data module."
+            )
+            return
+
+        # Ensure that autoscoper is running
+        if not self.logic.AutoscoperProcess.state() in [qt.QProcess.Starting, qt.QProcess.Running]:
+            logging.error("Autoscoper is not running. Please start Autoscoper using the AutoscoperM module.")
+            return
+
+        # Load the sample data
+        configFile = os.path.join(sampleDataDir, f"{dataType}.cfg")
+
+        if not os.path.exists(configFile):
+            # If the config file doesn't exist, create it
+            cameras = glob.glob(os.path.join(sampleDataDir, "Calibration", "*.txt"))
+            models = glob.glob(os.path.join(sampleDataDir, "Models", "*.tif"))
+            videos = glob.glob(os.path.join(sampleDataDir, "XMA_UND", "*"))
+            with open(configFile, "w") as f:
+                for camera in sorted(cameras):
+                    f.write(f"mayaCam_csv {camera}\n")
+                for video in sorted(videos):
+                    f.write(f"CameraRootDir {video}\n")
+                for model in sorted(models):
+                    f.write(f"VolumeFile {model}\n")
+                    f.write("VolumeFlip 0 0 0\n")
+                    f.write("VoxelSize 0.39625 0.39625 0.625\n")
+                f.write("RenderResolution 512 512\n")
+                f.write("OptimizationOffsets 0.1 0.1 0.1 0.1 0.1 0.1\n")
+
+        self.loadConfig(configFile)
+
+        # Load filter settings
+        numCams = len(glob.glob(os.path.join(sampleDataDir, "Calibration", "*.txt")))
+        filterSettings = os.path.join(sampleDataDir, "xParameters", "control_settings.vie")
+        for cam in range(numCams):
+            self.logic.AutoscoperSocket.loadFilters(cam, filterSettings)
 
 
 #
