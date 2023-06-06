@@ -93,6 +93,33 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   set(${proj}_DIR ${EP_BINARY_DIR}/Autoscoper-build)
 
+  #-----------------------------------------------------------------------------
+  # Launcher setting specific to build tree
+
+  # library paths
+  set(${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
+    ${EP_BINARY_DIR}/GLEW-Install/${Slicer_THIRDPARTY_BIN_DIR} # Glew library
+    ${EP_BINARY_DIR}/TIFF-Install/${Slicer_THIRDPARTY_BIN_DIR} # TIFF library
+    )
+  mark_as_superbuild(
+    VARS ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
+    LABELS "LIBRARY_PATHS_LAUNCHER_BUILD"
+    )
+
+  # paths
+  set(${proj}_PATHS_LAUNCHER_BUILD
+    ${EP_BINARY_DIR}/Autoscoper-build/${Slicer_THIRDPARTY_BIN_DIR}/${CMAKE_CFG_INTDIR} # Autoscoper executable
+    )
+  mark_as_superbuild(
+    VARS ${proj}_PATHS_LAUNCHER_BUILD
+    LABELS "PATHS_LAUNCHER_BUILD"
+    )
+
+  #-----------------------------------------------------------------------------
+  # Launcher setting specific to install tree
+
+  # NA
+
 else()
   ExternalProject_Add_Empty(${proj} DEPENDS ${${proj}_DEPENDS})
 endif()
