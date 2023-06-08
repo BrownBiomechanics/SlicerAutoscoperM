@@ -57,12 +57,17 @@ and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR0132
 
 
 def downloadAndExtract(source):
-    import SampleData
+    try:
+        logic = slicer.modules.SampleDataWidget.logic
+    except AttributeError:
+        import SampleData
 
-    SampleData.SampleDataLogic().logMessage("Downloading %s...\n" % (source.uris[0]))
-    SampleData.SampleDataLogic().downloadFromSource(source)
-    SampleData.SampleDataLogic().logMessage("Extracting %s...\n" % (source.fileNames[0]))
+        logic = SampleData.SampleDataLogic()
+
+    logic.downloadFromSource(source)
+
     cache_dir = slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory()
+    logic.logMessage(f"<b>Extracting archive</b> <i>{source.fileNames[0]}<i/> into {cache_dir} ...</b>")
 
     # Unzip the downloaded file
     with zipfile.ZipFile(os.path.join(cache_dir, source.fileNames[0]), "r") as zip_ref:
@@ -70,7 +75,7 @@ def downloadAndExtract(source):
 
     # Remove the zip file
     os.remove(os.path.join(cache_dir, source.fileNames[0]))
-    SampleData.SampleDataLogic().logMessage("Done\n")
+    logic.logMessage("<b>Done</b>")
 
 
 def registerAutoscoperSampleData(dataType, version, checksum):
