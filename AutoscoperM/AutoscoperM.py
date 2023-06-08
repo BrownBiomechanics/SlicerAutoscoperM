@@ -251,9 +251,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic.startAutoscoper(executablePath)
 
     def onLoadConfig(self):
-        configPath = self.ui.configSelector.currentPath
+        self.loadConfig(self.ui.configSelector.currentPath)
+
+    def loadConfig(self, configPath):
         if not configPath.endswith(".cfg"):
-            logging.error(f"Failed to load config file: {configPath} is expected to have .cfg extension")
+            logging.error(f"Failed to load config file: {configPath} is expected to have the .cfg extension")
             return
 
         if not os.path.exists(configPath):
