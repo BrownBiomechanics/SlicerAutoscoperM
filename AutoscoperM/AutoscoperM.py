@@ -73,69 +73,41 @@ def downloadAndExtract(source):
     SampleData.SampleDataLogic().logMessage("Done\n")
 
 
+def registerAutoscoperSampleData(dataType, version, checksum):
+    import SampleData
+
+    iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        # Category and sample name displayed in Sample Data module
+        category="Tracking",
+        sampleName=f"AutoscoperM - {dataType} BVR",
+        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        thumbnailFileName=os.path.join(iconsPath, f"{dataType}.png"),
+        # Download URL and target file name
+        uris=f"https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/{version}-{dataType}.zip",
+        fileNames=f"{version}-{dataType}.zip",
+        # Checksum to ensure file integrity. Can be computed by this command:
+        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
+        checksums=checksum,
+        # This node name will be used when the data set is loaded
+        # nodeNames=f"AutoscoperM - {dataType} BVR" # comment this line so the data is not loaded into the scene
+        customDownloader=downloadAndExtract,
+    )
+
+
 def registerSampleData():
     """
     Add data sets to Sample Data module.
     """
-    import SampleData
-
-    iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
-
-    # Sample Wrist data set
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category="Tracking",
-        sampleName="AutoscoperM - Wrist BVR",
-        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "Wrist.png"),
-        # Download URL and target file name
-        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Wrist.zip",
-        fileNames="2023-05-25-Wrist.zip",
-        # Checksum to ensure file integrity. Can be computed by this command:
-        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
-        checksums="SHA256:6c5a8bc2761845de557ef3a7dda2afaa32e8fd3588ab592f16ce67ec7ff6d87e",
-        # This node name will be used when the data set is loaded
-        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
-        customDownloader=downloadAndExtract,
+    registerAutoscoperSampleData(
+        "Wrist", "2023-05-25", checksum="SHA256:6c5a8bc2761845de557ef3a7dda2afaa32e8fd3588ab592f16ce67ec7ff6d87e"
     )
-
-    # Sample Knee data set
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category="Tracking",
-        sampleName="AutoscoperM - Knee BVR",
-        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "Knee.png"),
-        # Download URL and target file name
-        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Knee.zip",
-        fileNames="2023-05-25-Knee.zip",
-        # Checksum to ensure file integrity. Can be computed by this command:
-        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
-        checksums="SHA256:5e5a1f69d195b95de4f172192e060076eb0c52c0c1fe8be659eec69d29feeafa",
-        # This node name will be used when the data set is loaded
-        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
-        customDownloader=downloadAndExtract,
+    registerAutoscoperSampleData(
+        "Knee", "2023-05-25", checksum="SHA256:5e5a1f69d195b95de4f172192e060076eb0c52c0c1fe8be659eec69d29feeafa"
     )
-
-    # Sample Ankle data set
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category="Tracking",
-        sampleName="AutoscoperM - Ankle BVR",
-        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "Ankle.png"),
-        # Download URL and target file name
-        uris="https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/2023-05-25-Ankle.zip",
-        fileNames="2023-05-25-Ankle.zip",
-        # Checksum to ensure file integrity. Can be computed by this command:
-        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
-        checksums="SHA256:1f23cbc58a0457681d37a234154f83444addd1979835706f5d5718819bba822c",
-        # This node name will be used when the data set is loaded
-        # nodeNames='AutoscoperM - Wrist BVR' # disable this line so the data is not loaded into the scene
-        customDownloader=downloadAndExtract,
+    registerAutoscoperSampleData(
+        "Ankle", "2023-05-25", checksum="SHA256:1f23cbc58a0457681d37a234154f83444addd1979835706f5d5718819bba822c"
     )
 
 
