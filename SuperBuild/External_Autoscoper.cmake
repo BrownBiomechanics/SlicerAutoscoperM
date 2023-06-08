@@ -98,6 +98,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   # library paths
   set(${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
+    ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${Slicer_THIRDPARTY_BIN_DIR}/${CMAKE_CFG_INTDIR} # OpenCL library
     ${EP_BINARY_DIR}/GLEW-Install/${Slicer_THIRDPARTY_BIN_DIR} # Glew library
     ${EP_BINARY_DIR}/TIFF-Install/${Slicer_THIRDPARTY_BIN_DIR} # TIFF library
     )
