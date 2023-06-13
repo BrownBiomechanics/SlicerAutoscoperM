@@ -44,4 +44,6 @@ isort.known-third-party = [
 ]
 isort.known-first-party = [
   "AutoscoperM",
+  "TrackingEvaluation",
+  "TrackingEvaluationLib",
 ]
