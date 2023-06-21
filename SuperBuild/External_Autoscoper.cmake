@@ -31,7 +31,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_TAG
-    "b29d30f51f84a77dc70c0e1ee6b99ecf5a3f64d8"
+    "48286c33c8059ecba34b524ac296206af409f64c"
     QUIET
   )
 
@@ -41,6 +41,20 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
   # with "install(EXPORT <export-name> DESTINATION <dir>)" start with "./"
   if(NOT APPLE)
     set(Slicer_INSTALL_THIRDPARTY_LIB_DIR ${Slicer_THIRDPARTY_LIB_DIR})
+  endif()
+
+  set(Autoscoper_INSTALL_DEPENDENCIES TRUE)
+  if(APPLE)
+    # Dependency libraries (e.g Glew) will be installed leveraging
+    # the macOS "fix-up" script.
+    set(Autoscoper_INSTALL_DEPENDENCIES FALSE)
+  endif()
+
+  if(APPLE)
+    list(APPEND EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS
+      -DAutoscoper_EXECUTABLE_LINK_FLAGS:STRING=${Slicer_INSTALL_THIRDPARTY_EXECUTABLE_LINK_FLAGS}
+      -DAutoscoper_MACOSX_BUNDLE:STRING=OFF
+      )
   endif()
 
   if(UNIX AND NOT APPLE)
@@ -79,6 +93,8 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       -DAutoscoper_LIB_DIR:STRING=${Slicer_INSTALL_THIRDPARTY_LIB_DIR}
       # Options
       -DAutoscoper_SUPERBUILD:BOOL=ON
+      -DAutoscoper_CONFIGURE_LAUCHER_SCRIPT:BOOL=OFF
+      -DAutoscoper_INSTALL_DEPENDENCIES:BOOL=${Autoscoper_INSTALL_DEPENDENCIES}
       -DAutoscoper_INSTALL_Qt_LIBRARIES:BOOL=OFF
       -DAutoscoper_INSTALL_SAMPLE_DATA:BOOL=OFF
       -DAutoscoper_RENDERING_BACKEND:STRING=OpenCL
@@ -90,6 +106,27 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
     DEPENDS
       ${${proj}_DEPENDS}
     )
+
+  if(APPLE)
+    set(glew_library ${EP_BINARY_DIR}/GLEW-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}/libGLEW$<$<CONFIG:Debug>:d>.2.2.0.dylib)
+    ExternalProject_Add_Step(${proj} fix_glew_rpath
+      COMMAND install_name_tool -id ${glew_library} ${glew_library}
+      DEPENDEES build
+      )
+    set(tiff_library ${EP_BINARY_DIR}/TIFF-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}/libtiff.5.8.0.dylib)
+    ExternalProject_Add_Step(${proj} fix_tiff_rpath
+      COMMAND install_name_tool -id ${tiff_library} ${tiff_library}
+      DEPENDEES build
+      )
+    set(autoscoper_executable ${EP_BINARY_DIR}/Autoscoper-build/${Slicer_INSTALL_THIRDPARTY_BIN_DIR}/autoscoper)
+    ExternalProject_Add_Step(${proj} fix_autoscoper_rpath
+      COMMAND install_name_tool
+        -change "@rpath/libGLEW$<$<CONFIG:Debug>:d>.2.2.dylib" ${glew_library}
+        -change "@rpath/libtiff.5.dylib" ${tiff_library}
+        ${autoscoper_executable}
+      DEPENDEES fix_glew_rpath fix_tiff_rpath
+      )
+  endif()
 
   set(${proj}_DIR ${EP_BINARY_DIR}/Autoscoper-build)
 
