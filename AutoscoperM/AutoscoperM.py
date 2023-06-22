@@ -463,7 +463,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         slicer.app.processEvents()
 
-        time.sleep(2)  # wait for autoscoper to boot up before connecting
+        time.sleep(4)  # wait for autoscoper to boot up before connecting
 
         self.connectToAutoscoper()
 
