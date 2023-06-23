@@ -57,6 +57,11 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       )
   endif()
 
+  set(Autoscoper_OPENCL_USE_ICD_LOADER TRUE)
+  if(APPLE)
+    set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
+  endif()
+
   if(UNIX AND NOT APPLE)
     if(NOT DEFINED OpenGL_GL_PREFERENCE OR "${OpenGL_GL_PREFERENCE}" STREQUAL "")
       set(OpenGL_GL_PREFERENCE "LEGACY")
@@ -94,6 +99,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       # Options
       -DAutoscoper_SUPERBUILD:BOOL=ON
       -DAutoscoper_CONFIGURE_LAUCHER_SCRIPT:BOOL=OFF
+      -DAutoscoper_OPENCL_USE_ICD_LOADER:BOOL=${Autoscoper_OPENCL_USE_ICD_LOADER}
       -DAutoscoper_INSTALL_DEPENDENCIES:BOOL=${Autoscoper_INSTALL_DEPENDENCIES}
       -DAutoscoper_INSTALL_Qt_LIBRARIES:BOOL=OFF
       -DAutoscoper_INSTALL_SAMPLE_DATA:BOOL=OFF
@@ -135,10 +141,14 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   # library paths
   set(${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
-    ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${Slicer_THIRDPARTY_BIN_DIR}/${CMAKE_CFG_INTDIR} # OpenCL library
     ${EP_BINARY_DIR}/GLEW-Install/${Slicer_THIRDPARTY_BIN_DIR} # Glew library
     ${EP_BINARY_DIR}/TIFF-Install/${Slicer_THIRDPARTY_BIN_DIR} # TIFF library
     )
+  if(Autoscoper_OPENCL_USE_ICD_LOADER)
+    list(APPEND ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
+      ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${Slicer_THIRDPARTY_BIN_DIR}/${CMAKE_CFG_INTDIR} # OpenCL library
+      )
+  endif()
   mark_as_superbuild(
     VARS ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
     LABELS "LIBRARY_PATHS_LAUNCHER_BUILD"
