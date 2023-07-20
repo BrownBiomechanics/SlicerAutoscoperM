@@ -106,13 +106,13 @@ def registerSampleData():
     Add data sets to Sample Data module.
     """
     registerAutoscoperSampleData(
-        "Wrist", "2023-05-25", checksum="SHA256:6c5a8bc2761845de557ef3a7dda2afaa32e8fd3588ab592f16ce67ec7ff6d87e"
+        "Wrist", "2023-08-01", checksum="SHA256:86a914ec822d88d3cbd70135ac77212207856c71a244d18b0e150f246f0e8ab2"
     )
     registerAutoscoperSampleData(
-        "Knee", "2023-05-25", checksum="SHA256:5e5a1f69d195b95de4f172192e060076eb0c52c0c1fe8be659eec69d29feeafa"
+        "Knee", "2023-08-01", checksum="SHA256:ffdba730e8792ee8797068505ae502ed6edafe26e70597ff10a2e017a4162767"
     )
     registerAutoscoperSampleData(
-        "Ankle", "2023-05-25", checksum="SHA256:1f23cbc58a0457681d37a234154f83444addd1979835706f5d5718819bba822c"
+        "Ankle", "2023-08-01", checksum="SHA256:9e666e0dbca0c556072d2c9c18f4ddc74bfb328b98668c7f65347e4746431e33"
     )
 
 
@@ -177,9 +177,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
 
         # Sample Data Buttons
-        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Wrist"))
-        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Knee"))
-        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-05-25-Ankle"))
+        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-20-Wrist"))
+        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-26-Knee"))
+        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-20-Ankle"))
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -352,21 +352,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         configFile = os.path.join(sampleDataDir, f"{dataType}.cfg")
 
         if not os.path.exists(configFile):
-            # If the config file doesn't exist, create it
-            cameras = glob.glob(os.path.join(sampleDataDir, "Calibration", "*.txt"))
-            models = glob.glob(os.path.join(sampleDataDir, "Models", "*.tif"))
-            videos = glob.glob(os.path.join(sampleDataDir, "XMA_UND", "*"))
-            with open(configFile, "w") as f:
-                for camera in sorted(cameras):
-                    f.write(f"mayaCam_csv {camera}\n")
-                for video in sorted(videos):
-                    f.write(f"CameraRootDir {video}\n")
-                for model in sorted(models):
-                    f.write(f"VolumeFile {model}\n")
-                    f.write("VolumeFlip 0 0 0\n")
-                    f.write("VoxelSize 0.39625 0.39625 0.625\n")
-                f.write("RenderResolution 512 512\n")
-                f.write("OptimizationOffsets 0.1 0.1 0.1 0.1 0.1 0.1\n")
+            logging.error(f"Failed to load config file: {configFile} not found")
+            return
 
         self.loadConfig(configFile)
 
