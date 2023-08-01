@@ -222,14 +222,48 @@ def castVolumeForTIFF(volumeNode: slicer.vtkMRMLVolumeNode):
 
 
 def _castVolume(volumeNode: slicer.vtkMRMLVolumeNode, newType: str):
+    """
+    Internal function to cast a volume node to a new type
+    """
+    tmpVolNode = _createNewVolumeNode("tmpVolNode")
     castModule = slicer.modules.castscalarvolume
     parameters = {}
     parameters["InputVolume"] = volumeNode.GetID()
-    parameters["OutputVolume"] = parameters["InputVolume"]
+    parameters["OutputVolume"] = tmpVolNode.GetID()
     parameters["Type"] = newType  # Short to UnsignedShort
     cliNode = slicer.cli.runSync(castModule, None, parameters)
     slicer.mrmlScene.RemoveNode(cliNode)
     del cliNode, parameters, castModule
+
+    volumeNode.SetAndObserveImageData(tmpVolNode.GetImageData())
+    slicer.mrmlScene.RemoveNode(tmpVolNode)
+
+
+def _createNewVolumeNode(nodeName: str) -> slicer.vtkMRMLVolumeNode:
+    """
+    Internal function to create a blank volume node
+    """
+    imageSize = [512, 512, 512]
+    voxelType = vtk.VTK_UNSIGNED_CHAR
+    imageOrigin = [0.0, 0.0, 0.0]
+    imageSpacing = [1.0, 1.0, 1.0]
+    imageDirections = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    fillVoxelValue = 0
+
+    # Create an empty image volume, filled with fillVoxelValue
+    imageData = vtk.vtkImageData()
+    imageData.SetDimensions(imageSize)
+    imageData.AllocateScalars(voxelType, 1)
+    imageData.GetPointData().GetScalars().Fill(fillVoxelValue)
+    # Create volume node
+    volumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", nodeName)
+    volumeNode.SetOrigin(imageOrigin)
+    volumeNode.SetSpacing(imageSpacing)
+    volumeNode.SetIJKToRASDirections(imageDirections)
+    volumeNode.SetAndObserveImageData(imageData)
+    volumeNode.CreateDefaultDisplayNodes()
+    volumeNode.CreateDefaultStorageNode()
+    return volumeNode
 
 
 def writeTFMFile(filename: str, spacing: list[float], origin: list[float]):
