@@ -417,7 +417,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         try:
             from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
         except ImportError:
-            slicer.util.pip_install("PyAutoscoper~=1.1.0")
+            slicer.util.pip_install("PyAutoscoper~=2.0.0")
             from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
 
         self.AutoscoperSocket = AutoscoperConnection()
