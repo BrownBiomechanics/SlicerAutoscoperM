@@ -392,6 +392,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     def connectToAutoscoper(self):
         """Connect to a running instance of Autoscoper."""
 
+        if self.AutoscoperProcess.state() != qt.QProcess.Running:
+            logging.error("failed to connect to Autoscoper: The process is not running")
+            return
+
         try:
             from PyAutoscoper.connect import AutoscoperConnection
         except ImportError:
