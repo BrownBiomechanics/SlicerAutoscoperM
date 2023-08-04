@@ -12,7 +12,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QPushButton" name="applyButton">
+    <widget class="QPushButton" name="startAutoscoper">
      <property name="enabled">
       <bool>true</bool>
      </property>

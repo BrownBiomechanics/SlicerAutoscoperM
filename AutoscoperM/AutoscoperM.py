@@ -179,7 +179,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # NA
 
         # Buttons
-        self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        self.ui.startAutoscoper.connect("clicked(bool)", self.lookupAndStartAutoscoper)
         self.ui.closeAutoscoper.connect("clicked(bool)", self.logic.stopAutoscoper)
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
 
@@ -297,9 +297,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self._parameterNode.EndModify(wasModified)
 
-    def onApplyButton(self):
-        """
-        Run processing when user clicks "Apply" button.
+    def lookupAndStartAutoscoper(self):
+        """Lookup autoscoper executable and start a new process
+
+        This call waits that the process has been started and returns.
         """
         import shutil
 
