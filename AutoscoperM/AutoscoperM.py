@@ -337,8 +337,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Ensure that autoscoper is running
         if self.logic.AutoscoperProcess.state() not in [qt.QProcess.Starting, qt.QProcess.Running]:
-            logging.error("Autoscoper is not running. Please start Autoscoper using the AutoscoperM module.")
-            return
+            if slicer.util.confirmYesNoDisplay("Autoscoper is not running. Do you want to start Autoscoper?"):
+                self.lookupAndStartAutoscoper()
+            else:
+                return
 
         # Load the sample data
         configFile = os.path.join(sampleDataDir, sampleDataConfigFile(dataType))
