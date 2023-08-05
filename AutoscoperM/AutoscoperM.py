@@ -101,6 +101,15 @@ def registerAutoscoperSampleData(dataType, version, checksum):
     )
 
 
+def sampleDataConfigFile(dataType):
+    """Return the trial config filename."""
+    return {
+        "2023-08-01-Wrist": "2023-07-20-Wrist.cfg",
+        "2023-08-01-Knee": "2023-07-26-Knee.cfg",
+        "2023-08-01-Ankle": "2023-07-20-Ankle.cfg",
+    }.get(dataType, None)
+
+
 def registerSampleData():
     """
     Add data sets to Sample Data module.
@@ -177,9 +186,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
 
         # Sample Data Buttons
-        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-20-Wrist"))
-        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-26-Knee"))
-        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-07-20-Ankle"))
+        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Wrist"))
+        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Knee"))
+        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Ankle"))
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -349,7 +358,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         # Load the sample data
-        configFile = os.path.join(sampleDataDir, f"{dataType}.cfg")
+        configFile = os.path.join(sampleDataDir, sampleDataConfigFile(dataType))
 
         if not os.path.exists(configFile):
             logging.error(f"Failed to load config file: {configFile} not found")
