@@ -26,15 +26,15 @@ def loadTraAsSequence(data: np.ndarray) -> list[vtk.vtkMatrix4x4]:
         return None
 
     result = []
-    for i, row in enumerate(data):
+    for idx, row in enumerate(data):
         matrix = vtk.vtkMatrix4x4()
         # If there is no data, set the matrix to the previous matrix.
         # If its the first matrix, set it to the identity matrix.
         if np.isnan(row).any():
-            if i == 0:
+            if idx == 0:
                 matrix.Identity()
             else:
-                matrix.DeepCopy(result[i - 1])
+                matrix.DeepCopy(result[idx - 1])
         else:
             for i in range(4):
                 for j in range(4):
@@ -60,11 +60,11 @@ def tmpTFMLoader(
         matrix = vtk.vtkMatrix4x4()
         matrixLines = lines[:4]  # first 4 lines are the matrix
         for i, line in enumerate(matrixLines):
-            line = line.strip()
-            line = line.split(" ")
-            line = [float(x) for x in line]
+            values = line.strip()
+            values = values.split(" ")
+            values = [float(x) for x in values]
             for j in range(4):
-                matrix.SetElement(i, j, line[j])
+                matrix.SetElement(i, j, values[j])
     return matrix
 
 
@@ -396,22 +396,26 @@ class Scene:
 
     def calculateRelativeMovements(self, referenceNode):
         referenceIdx = -1
-        for i, model in enumerate(self.models):
+
+        for modelIdx, model in enumerate(self.models):
             if model.userModelNode == referenceNode:
-                referenceIdx = i
+                referenceIdx = modelIdx
                 break
+
         if referenceIdx == -1:
             slicer.util.errorDisplay("Reference node not found! Are you sure it's a part of the scene?")
             return None
 
         results = []
-        for i in range(len(self.models)):
-            if i == referenceIdx:
+
+        for modelIdx in range(len(self.models)):
+            if modelIdx == referenceIdx:
                 matrix = vtk.vtkMatrix4x4()
                 matrix.Identity()
                 results.append(matrix)
                 continue
-            userTFM = self.models[i].userSequence[self.currentFrame]
+
+            userTFM = self.models[modelIdx].userSequence[self.currentFrame]
             referenceTFM = self.models[referenceIdx].userSequence[self.currentFrame]
 
             userR = vtk.vtkMatrix3x3()
@@ -440,4 +444,5 @@ class Scene:
                 relativeTFM.SetElement(i, 3, relativeT[i])
 
             results.append(relativeTFM)
+
         return results
