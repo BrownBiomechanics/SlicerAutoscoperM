@@ -6,9 +6,8 @@ import time
 import zipfile
 
 import qt
-import vtk
-
 import slicer
+import vtk
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
