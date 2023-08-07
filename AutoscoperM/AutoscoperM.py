@@ -107,7 +107,7 @@ def sampleDataConfigFile(dataType):
         "2023-08-01-Wrist": "2023-07-20-Wrist.cfg",
         "2023-08-01-Knee": "2023-07-26-Knee.cfg",
         "2023-08-01-Ankle": "2023-07-20-Ankle.cfg",
-    }.get(dataType, None)
+    }.get(dataType)
 
 
 def registerSampleData():
