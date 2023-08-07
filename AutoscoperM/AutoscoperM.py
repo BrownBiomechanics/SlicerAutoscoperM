@@ -412,7 +412,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         This call waits the process has been started and returns.
         """
         if not os.path.exists(executablePath):
-            logging.error("Specified executable %s does not exist" % executablePath)
+            logging.error(f"Specified executable {executablePath} does not exist")
             return
 
         if self.AutoscoperProcess.state() in [qt.QProcess.Starting, qt.QProcess.Running]:
@@ -431,7 +431,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         executableDirectory = os.path.dirname(executablePath)
 
         with changeCurrentDir(executableDirectory):
-            logging.info("Starting Autoscoper %s" % executablePath)
+            logging.info(f"Starting Autoscoper {executablePath}")
             self.AutoscoperProcess.setProgram(executablePath)
             self.AutoscoperProcess.start()
             self.AutoscoperProcess.waitForStarted()
