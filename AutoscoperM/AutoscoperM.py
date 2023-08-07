@@ -333,7 +333,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         # Ensure that autoscoper is running
-        if not self.logic.AutoscoperProcess.state() in [qt.QProcess.Starting, qt.QProcess.Running]:
+        if self.logic.AutoscoperProcess.state() not in [qt.QProcess.Starting, qt.QProcess.Running]:
             logging.error("Autoscoper is not running. Please start Autoscoper using the AutoscoperM module.")
             return
 
