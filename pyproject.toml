@@ -1,2 +1,47 @@
 [tool.black]
 line-length = 120
+target_version = ['py39']
+
+[tool.ruff]
+select = [
+    "ARG",         # flake8-unused-arguments
+#    "ANN",         # flake8-annotations
+    "B",           # flake8-bugbear
+    "C4",          # flake8-comprehensions
+    "E", "F", "W", # flake8
+    "EXE",         # flake8-executable
+    "G",           # flake8-logging-format
+    "I",           # isort
+    "ICN",         # flake8-import-conventions
+    "ISC",         # flake8-implicit-str-concat
+    "NPY",         # NumPy specific rules
+    "PGH",         # pygrep-hooks
+    "PIE",         # flake8-pie
+    "PL",          # pylint
+    "PT",          # flake8-pytest-style
+    "RET",         # flake8-return
+    "RUF",         # Ruff-specific
+    "S",           # flake8-bandit
+    "SIM",         # flake8-simplify
+    "UP",          # pyupgrade
+    "YTT",         # flake8-2020
+]
+extend-ignore = [
+    "ANN101",  # missing-type-self
+    "G004",    # logging-f-string
+    "PIE790",  # unnecessary-pass
+]
+target-version = "py39"
+line-length = 120
+flake8-annotations.suppress-dummy-args = true
+flake8-annotations.suppress-none-returning = true
+isort.known-third-party = [
+  "ctk",
+  "qt",
+  "slicer",
+  "SlicerCustomAppUtilities",
+  "vtk",
+]
+isort.known-first-party = [
+  "AutoscoperM",
+]
