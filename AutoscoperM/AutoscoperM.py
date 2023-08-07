@@ -9,7 +9,11 @@ import qt
 import vtk
 
 import slicer
-from slicer.ScriptedLoadableModule import *
+from slicer.ScriptedLoadableModule import (
+    ScriptedLoadableModule,
+    ScriptedLoadableModuleLogic,
+    ScriptedLoadableModuleWidget,
+)
 from slicer.util import VTKObservationMixin
 
 #
