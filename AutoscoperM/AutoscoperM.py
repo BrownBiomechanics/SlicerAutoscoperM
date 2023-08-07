@@ -209,14 +209,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
         self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
-    def onSceneStartClose(self, caller, event):
+    def onSceneStartClose(self, _caller, _event):
         """
         Called just before the scene is closed.
         """
         # Parameter node will be reset, do not use it anymore
         self.setParameterNode(None)
 
-    def onSceneEndClose(self, caller, event):
+    def onSceneEndClose(self, _caller, _event):
         """
         Called just after the scene is closed.
         """
@@ -259,7 +259,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Initial GUI update
         self.updateGUIFromParameterNode()
 
-    def updateGUIFromParameterNode(self, caller=None, event=None):
+    def updateGUIFromParameterNode(self, _caller=None, _event=None):
         """
         This method is called whenever parameter node is changed.
         The module GUI is updated to show the current state of the parameter node.
@@ -280,7 +280,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # All the GUI updates are done
         self._updatingGUIFromParameterNode = False
 
-    def updateParameterNodeFromGUI(self, caller=None, event=None):
+    def updateParameterNodeFromGUI(self, _caller=None, _event=None):
         """
         This method is called when the user makes any change in the GUI.
         The changes are saved into the parameter node (so that they are restored when the scene is saved and loaded).
