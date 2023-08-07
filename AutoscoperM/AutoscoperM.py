@@ -299,7 +299,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Run processing when user clicks "Apply" button.
         """
-        import shutil  # noqa: F401
+        import shutil
 
         executablePath = shutil.which("autoscoper")
         if not executablePath:
@@ -388,10 +388,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         """Connect to a running instance of Autoscoper."""
 
         try:
-            from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
+            from PyAutoscoper.connect import AutoscoperConnection
         except ImportError:
             slicer.util.pip_install("PyAutoscoper~=2.0.0")
-            from PyAutoscoper.connect import AutoscoperConnection  # noqa: F401
+            from PyAutoscoper.connect import AutoscoperConnection
 
         self.AutoscoperSocket = AutoscoperConnection()
         logging.info("connection to Autoscoper is established")
