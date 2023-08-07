@@ -87,7 +87,8 @@ def registerAutoscoperSampleData(dataType, version, checksum):
         category="Tracking",
         sampleName=f"AutoscoperM - {dataType} BVR",
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images"
+        # set to "Single".
         thumbnailFileName=os.path.join(iconsPath, f"{dataType}.png"),
         # Download URL and target file name
         uris=f"https://github.com/BrownBiomechanics/Autoscoper/releases/download/sample-data/{version}-{dataType}.zip",
