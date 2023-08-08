@@ -76,8 +76,6 @@ def downloadAndExtract(source):
     with zipfile.ZipFile(os.path.join(cache_dir, source.fileNames[0]), "r") as zip_ref:
         zip_ref.extractall(cache_dir)
 
-    # Remove the zip file
-    os.remove(os.path.join(cache_dir, source.fileNames[0]))
     logic.logMessage("<b>Done</b>")
 
 
