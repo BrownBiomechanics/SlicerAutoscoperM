@@ -336,11 +336,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         # Ensure that autoscoper is running
-        if self.logic.AutoscoperProcess.state() not in [qt.QProcess.Starting, qt.QProcess.Running]:
-            if slicer.util.confirmYesNoDisplay("Autoscoper is not running. Do you want to start Autoscoper?"):
-                self.lookupAndStartAutoscoper()
-            else:
-                return
+        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running and slicer.util.confirmYesNoDisplay(
+            "Autoscoper is not running. Do you want to start Autoscoper?"
+        ):
+            self.lookupAndStartAutoscoper()
+
+        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running:
+            logging.error("failed to load the Sample Data: Autoscoper is not running. ")
+            return
 
         # Load the sample data
         configFile = os.path.join(sampleDataDir, sampleDataConfigFile(dataType))
@@ -448,6 +451,12 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         slicer.app.processEvents()
 
         time.sleep(4)  # wait for autoscoper to boot up before connecting
+
+        # Since calling "time.sleep()" prevents Slicer application from being
+        # notified when the QProcess state changes (e.g Autoscoper is closed while
+        # Slicer as asleep waiting), we are calling waitForFinished() explicitly
+        # to ensure that the QProcess state is up-to-date.
+        self.AutoscoperProcess.waitForFinished(1)
 
         self.connectToAutoscoper()
 
