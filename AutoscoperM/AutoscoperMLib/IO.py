@@ -262,7 +262,6 @@ def _createNewVolumeNode(nodeName: str) -> slicer.vtkMRMLVolumeNode:
     volumeNode.SetIJKToRASDirections(imageDirections)
     volumeNode.SetAndObserveImageData(imageData)
     volumeNode.CreateDefaultDisplayNodes()
-    volumeNode.CreateDefaultStorageNode()
     return volumeNode
 
 
