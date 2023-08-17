@@ -2,12 +2,15 @@
 <ui version="4.0">
  <class>AutoscoperM</class>
  <widget class="qMRMLWidget" name="AutoscoperM">
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>1018</width>
-    <height>1240</height>
+    <height>860</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -162,7 +165,7 @@
           <item row="3" column="0">
            <widget class="QLabel" name="label_6">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <property name="text">
              <string>Trial Name:</string>
@@ -172,14 +175,14 @@
           <item row="3" column="1">
            <widget class="QLineEdit" name="trialName">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
            </widget>
           </item>
           <item row="5" column="0" colspan="2">
-           <widget class="ctkCollapsibleGroupBox" name="CollapsibleGroupBox">
+           <widget class="ctkCollapsibleGroupBox" name="AdvancedOptions">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <property name="title">
              <string>Advanced Options</string>
@@ -194,84 +197,8 @@
              <bool>true</bool>
             </property>
             <layout class="QGridLayout" name="gridLayout_3">
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_14">
-               <property name="text">
-                <string>Camera Subdirectory:</string>
-               </property>
-              </widget>
-             </item>
              <item row="5" column="2">
               <widget class="QSpinBox" name="vrgRes_width">
-               <property name="maximum">
-                <number>999999999</number>
-               </property>
-               <property name="value">
-                <number>1760</number>
-               </property>
-              </widget>
-             </item>
-             <item row="6" column="2" colspan="2">
-              <widget class="QLineEdit" name="vrgTempDir">
-               <property name="text">
-                <string>VRG-Temp</string>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="label_15">
-               <property name="text">
-                <string>VRG Resolution: (width,height)</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="2">
-              <widget class="QCheckBox" name="removeVrgTmp">
-               <property name="text">
-                <string>Delete VRG Temp Subdirecory after optimization</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_12">
-               <property name="text">
-                <string>Partial Volume Subdirectory:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="6" column="0">
-              <widget class="QLabel" name="label_16">
-               <property name="text">
-                <string>VRG Temp Subdirectory:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="2" colspan="2">
-              <widget class="QLineEdit" name="tiffSubDir">
-               <property name="text">
-                <string>Volumes</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="2" colspan="2">
-              <widget class="QLineEdit" name="cameraSubDir">
-               <property name="text">
-                <string>Calibration</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="2" colspan="2">
-              <widget class="QLineEdit" name="vrgSubDir">
-               <property name="text">
-                <string>VRGs</string>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="3">
-              <widget class="QSpinBox" name="vrgRes_height">
                <property name="maximum">
                 <number>999999999</number>
                </property>
@@ -287,10 +214,10 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_20">
+             <item row="6" column="2" colspan="2">
+              <widget class="QLineEdit" name="vrgTempDir">
                <property name="text">
-                <string>Partial Volume Transforms Subdirectory:</string>
+                <string>VRG-Temp</string>
                </property>
               </widget>
              </item>
@@ -298,6 +225,98 @@
               <widget class="QLineEdit" name="tfmSubDir">
                <property name="text">
                 <string>Transforms</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="2" colspan="2">
+              <widget class="QLineEdit" name="cameraSubDir">
+               <property name="text">
+                <string>Calibration</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2" colspan="2">
+              <widget class="QLineEdit" name="tiffSubDir">
+               <property name="text">
+                <string>Volumes</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="label_16">
+               <property name="text">
+                <string>VRG Temp Subdirectory:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2" colspan="2">
+              <widget class="QLineEdit" name="vrgSubDir">
+               <property name="text">
+                <string>VRGs</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_15">
+               <property name="text">
+                <string>VRG Resolution: (width,height)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0">
+              <widget class="QCheckBox" name="removeVrgTmp">
+               <property name="enabled">
+                <bool>true</bool>
+               </property>
+               <property name="text">
+                <string>Delete VRG Temp Subdirecory after optimization</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_12">
+               <property name="text">
+                <string>Partial Volume Subdirectory:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_20">
+               <property name="text">
+                <string>Partial Volume Transforms Subdirectory:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="3">
+              <widget class="QSpinBox" name="vrgRes_height">
+               <property name="maximum">
+                <number>999999999</number>
+               </property>
+               <property name="value">
+                <number>1760</number>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_14">
+               <property name="text">
+                <string>Camera Subdirectory:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="0">
+              <widget class="QCheckBox" name="camDebugCheckbox">
+               <property name="text">
+                <string>Camera Debug Mode</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
                </property>
               </widget>
              </item>
@@ -321,6 +340,9 @@
         <widget class="ctkCollapsibleButton" name="segGen">
          <property name="text">
           <string>Segmentation Generation</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="2" column="0">
@@ -403,9 +425,12 @@
          <property name="text">
           <string>Partial Volume Generation</string>
          </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
          <layout class="QGridLayout" name="gridLayout">
           <item row="1" column="1" colspan="2">
-           <widget class="qMRMLNodeComboBox" name="MRMLNodeComboBox">
+           <widget class="qMRMLNodeComboBox" name="pv_SegNodeComboBox">
             <property name="enabled">
              <bool>true</bool>
             </property>
@@ -449,7 +474,7 @@
        <item>
         <widget class="ctkCollapsibleButton" name="VRGGen">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="text">
           <string>VRG Generation</string>
@@ -457,11 +482,24 @@
          <property name="checked">
           <bool>false</bool>
          </property>
+         <property name="collapsed">
+          <bool>true</bool>
+         </property>
          <layout class="QGridLayout" name="gridLayout_5">
           <item row="5" column="0" colspan="4">
            <widget class="QPushButton" name="vrgGenButton">
             <property name="text">
              <string>Generate VRGs</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2" colspan="2">
+           <widget class="QSpinBox" name="posCamSpin">
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>50</number>
             </property>
            </widget>
           </item>
@@ -472,10 +510,16 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string># of Optimized Cameras:</string>
+          <item row="3" column="3">
+           <widget class="QSpinBox" name="camOffSetSpin">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="value">
+             <number>400</number>
             </property>
            </widget>
           </item>
@@ -491,37 +535,10 @@
              <number>1000</number>
             </property>
             <property name="value">
-             <number>100</number>
+             <number>400</number>
             </property>
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="3">
-           <widget class="QSpinBox" name="camOffSetSpin">
-            <property name="minimum">
-             <number>0</number>
-            </property>
-            <property name="maximum">
-             <number>1000</number>
-            </property>
-            <property name="value">
-             <number>100</number>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_7">
-            <property name="text">
-             <string># of Possible Cameras:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2" colspan="2">
-           <widget class="QSpinBox" name="posCamSpin">
-            <property name="minimum">
-             <number>10</number>
             </property>
            </widget>
           </item>
@@ -535,20 +552,42 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="2" colspan="2">
-           <widget class="QSpinBox" name="vrgGen_ThresholdSpinBox">
-            <property name="maximum">
-             <number>10000</number>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string># of Possible Cameras:</string>
             </property>
-            <property name="value">
-             <number>700</number>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string># of Optimized Cameras:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="0">
            <widget class="QLabel" name="label_18">
             <property name="text">
-             <string>Threshold Value:</string>
+             <string>Segmentation Node:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2" colspan="2">
+           <widget class="qMRMLNodeComboBox" name="vrg_SegNodeComboBox">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="nodeTypes">
+             <stringlist notr="true">
+              <string>vtkMRMLSegmentationNode</string>
+             </stringlist>
+            </property>
+            <property name="hideChildNodeTypes">
+             <stringlist notr="true"/>
+            </property>
+            <property name="interactionNodeSingletonTag">
+             <string notr="true"/>
             </property>
            </widget>
           </item>
@@ -558,13 +597,16 @@
        <item>
         <widget class="ctkCollapsibleButton" name="ConfigGen">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="text">
           <string>Generate Config</string>
          </property>
          <property name="checked">
           <bool>false</bool>
+         </property>
+         <property name="collapsed">
+          <bool>true</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
           <item row="0" column="0">
@@ -774,7 +816,7 @@
   <connection>
    <sender>AutoscoperM</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>MRMLNodeComboBox</receiver>
+   <receiver>pv_SegNodeComboBox</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -788,18 +830,18 @@
    </hints>
   </connection>
   <connection>
-   <sender>camOffSetSlider</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>camOffSetSpin</receiver>
-   <slot>setValue(int)</slot>
+   <sender>segGen_autoRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>segGen_marginSizeSpin</receiver>
+   <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>553</x>
-     <y>667</y>
+     <x>118</x>
+     <y>310</y>
     </hint>
     <hint type="destinationlabel">
-     <x>953</x>
-     <y>667</y>
+     <x>594</x>
+     <y>370</y>
     </hint>
    </hints>
   </connection>
@@ -820,50 +862,34 @@
    </hints>
   </connection>
   <connection>
-   <sender>vrgGen_ThresholdSpinBox</sender>
+   <sender>camOffSetSlider</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>segGen_ThresholdSpinBox</receiver>
+   <receiver>camOffSetSpin</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>587</x>
+     <x>553</x>
      <y>667</y>
     </hint>
     <hint type="destinationlabel">
-     <x>594</x>
-     <y>346</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>segGen_ThresholdSpinBox</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>vrgGen_ThresholdSpinBox</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>594</x>
-     <y>346</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>587</x>
+     <x>953</x>
      <y>667</y>
     </hint>
    </hints>
   </connection>
   <connection>
-   <sender>segGen_autoRadioButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>segGen_marginSizeSpin</receiver>
-   <slot>setEnabled(bool)</slot>
+   <sender>AutoscoperM</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>vrg_SegNodeComboBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>118</x>
-     <y>310</y>
+     <x>508</x>
+     <y>619</y>
     </hint>
     <hint type="destinationlabel">
-     <x>594</x>
-     <y>370</y>
+     <x>587</x>
+     <y>941</y>
     </hint>
    </hints>
   </connection>

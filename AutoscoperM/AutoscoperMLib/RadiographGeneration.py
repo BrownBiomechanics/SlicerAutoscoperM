@@ -11,9 +11,54 @@ class Camera:
         self.vtkCamera = vtk.vtkCamera()
         self.imageSize = [512, 512]
         self.id = -1
+        self.FrustumModel = None
+
+    def __str__(self) -> str:
+        dbgStr = f"Camera {self.id}\n"
+        dbgStr += f"Position: {self.vtkCamera.GetPosition()}\n"
+        dbgStr += f"Focal Point: {self.vtkCamera.GetFocalPoint()}\n"
+        dbgStr += f"View Angle: {self.vtkCamera.GetViewAngle()}\n"
+        dbgStr += f"Clipping Range: {self.vtkCamera.GetClippingRange()}\n"
+        dbgStr += f"View Up: {self.vtkCamera.GetViewUp()}\n"
+        dbgStr += f"Direction of Projection: {self.vtkCamera.GetDirectionOfProjection()}\n"
+        dbgStr += f"Distance: {self.vtkCamera.GetDistance()}\n"
+        dbgStr += f"Image Size: {self.imageSize}\n"
+        dbgStr += f"DID: {self.DID}\n"
+        dbgStr += "~" * 20 + "\n"
+        return dbgStr
 
 
-def generateNCameras(N: int, bounds: list[int], offset: int = 100, imageSize: tuple[int] = (512, 512)) -> list[Camera]:
+def _createFrustumModel(cam: Camera) -> None:
+    planesArray = [0] * 24
+    aspectRatio = cam.vtkCamera.GetExplicitAspectRatio()
+
+    cam.vtkCamera.GetFrustumPlanes(aspectRatio, planesArray)
+
+    planes = vtk.vtkPlanes()
+    planes.SetFrustumPlanes(planesArray)
+
+    hull = vtk.vtkHull()
+    hull.SetPlanes(planes)
+    pd = vtk.vtkPolyData()
+    hull.GenerateHull(pd, [-1000, 1000, -1000, 1000, -1000, 1000])
+
+    # Display the frustum
+    model = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
+    model.SetAndObservePolyData(pd)
+    model.CreateDefaultDisplayNodes()
+    model.GetDisplayNode().SetColor(1, 0, 0)
+    model.GetDisplayNode().SetOpacity(0.3)
+    # Set display to off
+    model.GetDisplayNode().SetVisibility(False)
+
+    model.SetName(f"cam{cam.id}-frustum")
+
+    cam.FrustumModel = model
+
+
+def generateNCameras(
+    N: int, bounds: list[int], offset: int = 100, imageSize: tuple[int] = (512, 512), camDebugMode: bool = False
+) -> list[Camera]:
     """
     Generate N cameras
 
@@ -28,6 +73,9 @@ def generateNCameras(N: int, bounds: list[int], offset: int = 100, imageSize: tu
 
     :param imageSize: Image size. Defaults to [512,512].
     :type imageSize: list[int]
+
+    :param camDebugMode: Whether or not to show the cameras in the scene. Defaults to False.
+    :type camDebugMode: bool
 
     :return: List of cameras
     :rtype: list[Camera]
@@ -67,18 +115,38 @@ def generateNCameras(N: int, bounds: list[int], offset: int = 100, imageSize: tu
         camera = Camera()
         camera.vtkCamera.SetPosition(points.GetPoint(i))
         camera.vtkCamera.SetFocalPoint(center)
-        camera.vtkCamera.SetViewAngle(25)
-        camera.vtkCamera.SetClippingRange(0.1, 1000)
+        camera.vtkCamera.SetViewAngle(30)
+        # Set the far clipping plane to be the distance from the camera to the far side of the volume
+        camera.vtkCamera.SetClippingRange(0.1, r + largestDimension)
+        # camera.vtkCamera.SetClippingRange(0.1, 1000)
+        camera.vtkCamera.SetViewUp(0, 1, 0)  # Set the view up to be the y axis
         camera.id = i
         camera.imageSize = imageSize
         cameras.append(camera)
+
+    if camDebugMode:
+        # Visualize the cameras
+        markups = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+        for cam in cameras:
+            print(cam)
+            # add a point to the markups node
+            markups.AddControlPoint(
+                cam.vtkCamera.GetPosition()[0],
+                cam.vtkCamera.GetPosition()[1],
+                cam.vtkCamera.GetPosition()[2],
+                f"cam{cam.id}",
+            )
+            # lock the point
+            markups.SetNthControlPointLocked(markups.GetNumberOfControlPoints() - 1, True)
+
+            _createFrustumModel(cam)
 
     return cameras
 
 
 def generateVRG(
     camera: Camera,
-    volumeNode: slicer.vtkMRMLVolumeNode,
+    volumeImageData: vtk.vtkImageData,
     outputFileName: str,
     width: int,
     height: int,
@@ -89,8 +157,8 @@ def generateVRG(
     :param camera: Camera
     :type camera: Camera
 
-    :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
+    :param volumeImageData: Volume image data
+    :type volumeImageData: vtk.vtkImageData
 
     :param outputFileName: Output file name
     :type outputFileName: str
@@ -105,9 +173,6 @@ def generateVRG(
     # create the renderer
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(1, 1, 1)
-    renderer.SetUseDepthPeeling(1)
-    renderer.SetMaximumNumberOfPeels(100)
-    renderer.SetOcclusionRatio(0.1)
 
     # create the render window
     renderWindow = vtk.vtkRenderWindow()
@@ -117,7 +182,7 @@ def generateVRG(
 
     # create the volume mapper
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
-    volumeMapper.SetInputData(volumeNode.GetImageData())
+    volumeMapper.SetInputData(volumeImageData)
     volumeMapper.SetBlendModeToComposite()
 
     # create the volume property
@@ -129,8 +194,6 @@ def generateVRG(
     volumeProperty.SetSpecular(0.2)
 
     # create a piecewise function for scalar opacity
-    # first point is X: 300, O: 0.00
-    # second point is X: 950, O: 0.20
     opacityTransferFunction = vtk.vtkPiecewiseFunction()
     opacityTransferFunction.AddPoint(-10000, 0.05)
     opacityTransferFunction.AddPoint(0, 0.00)
@@ -145,7 +208,6 @@ def generateVRG(
     # add the volume to the renderer
     renderer.AddVolume(volume)
     renderer.SetActiveCamera(camera.vtkCamera)
-    renderer.ResetCamera()
 
     # render the image
     renderWindow.Render()
@@ -178,6 +240,7 @@ def _calculateDataIntensityDensity(camera: Camera, whiteRadiographFName: str) ->
     :param whiteRadiographFName: White radiograph file name
     :type whiteRadiographFName: str
     """
+
     import numpy as np
     import SimpleITK as sitk
 
@@ -259,9 +322,9 @@ def optimizeCameras(
         camera = cameras[i]
         vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
         _calculateDataIntensityDensity(camera, vrgFName)
-        progress = ((i + 1) / len(cameras)) * 29 + 42
+        progress = ((i + 1) / len(cameras)) * 50 + 40
         progressCallback(progress)
 
-    cameras.sort(key=lambda x: x.DID, reverse=True)
+    cameras.sort(key=lambda x: x.DID)
 
     return cameras[:nOptimizedCameras]
