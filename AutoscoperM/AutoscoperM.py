@@ -5,6 +5,7 @@ import os
 import shutil
 import time
 import zipfile
+from typing import Optional
 
 import qt
 import slicer
@@ -382,18 +383,23 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         This function creates partial volumes for each segment in the segmentation node for the selected volume node.
         """
         volumeNode = self.ui.volumeSelector.currentNode()
-        if not volumeNode:
-            logging.error("Failed to generate partial volume: no volume selected")
-            return
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        if mainOutputDir is None or mainOutputDir == "":
-            logging.error("Failed to generate partial volume: no output directory selected")
-            return
-        if not os.path.exists(mainOutputDir):
-            os.makedirs(mainOutputDir)
         tiffSubDir = self.ui.tiffSubDir.text
         tfmSubDir = self.ui.tfmSubDir.text
-        segmentationNode = self.ui.MRMLNodeComboBox.currentNode()
+        segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
+        if not self.logic.validateInputs(
+            volumeNode=volumeNode,
+            segmentationNode=segmentationNode,
+            mainOutputDir=mainOutputDir,
+            volumeSubDir=tiffSubDir,
+            transformSubDir=tfmSubDir,
+        ):
+            raise ValueError("Invalid inputs")
+            return
+
+        self.logic.createPathsIfNotExists(
+            mainOutputDir, os.path.join(mainOutputDir, tiffSubDir), os.path.join(mainOutputDir, tfmSubDir)
+        )
         self.ui.progressBar.setValue(0)
         self.ui.progressBar.setMaximum(100)
         self.logic.saveSubVolumesFromSegmentation(
@@ -407,118 +413,121 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onGenerateVRG(self):
         """
-        NOTE - This function is not currently used. It is a work in progress.
-
         This function optimizes the camera positions for a given volume and then
         generates a VRG file for each optimized camera.
         """
 
         self.updateProgressBar(0)
 
+        # Set up and validate inputs
         volumeNode = self.ui.volumeSelector.currentNode()
-        if not volumeNode:
-            logging.error("Failed to generate VRG: no volume selected")
-            return
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        if mainOutputDir is None or mainOutputDir == "":
-            logging.error("Failed to generate VRG: no output directory selected")
-            return
-        if not os.path.exists(mainOutputDir):
-            os.makedirs(mainOutputDir)
-
+        segmentationNode = self.ui.vrg_SegNodeComboBox.currentNode()
         width = self.ui.vrgRes_width.value
         height = self.ui.vrgRes_height.value
-
         nPossibleCameras = self.ui.posCamSpin.value
         nOptimizedCameras = self.ui.optCamSpin.value
-
+        tmpDir = self.ui.vrgTempDir.text
+        cameraSubDir = self.ui.cameraSubDir.text
+        vrgSubDir = self.ui.vrgSubDir.text
+        if not self.logic.validateInputs(
+            volumeNode=volumeNode,
+            segmentationNode=segmentationNode,
+            mainOutputDir=mainOutputDir,
+            width=width,
+            height=height,
+            nPossibleCameras=nPossibleCameras,
+            nOptimizedCameras=nOptimizedCameras,
+            tmpDir=tmpDir,
+            cameraSubDir=cameraSubDir,
+            vrgSubDir=vrgSubDir,
+        ):
+            raise ValueError("Invalid inputs")
+            return
+        if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
+            raise ValueError("Invalid paths")
+            return
         if nPossibleCameras < nOptimizedCameras:
             logging.error("Failed to generate VRG: more optimized cameras than possible cameras")
             return
 
-        newVolumeNode = SubVolumeExtraction.automaticExtraction(
-            volumeNode,
-            self.ui.vrgGen_ThresholdSpinBox.value,
-            segmentationName="Full Extraction",
-            progressCallback=self.updateProgressBar,
-            maxProgressValue=10,
+        # Extract the subvolume for the radiographs
+        volumeImageData, bounds = self.logic.extractSubVolumeForVRG(
+            volumeNode, segmentationNode, cameraDebugMode=self.ui.camDebugCheckbox.isChecked()
         )
-        bounds = [0, 0, 0, 0, 0, 0]
-        newVolumeNode.GetBounds(bounds)
-
-        # rename the volume node
-        newVolumeNode.SetName(volumeNode.GetName() + " - Bone Subvolume")
-        self.logic.removeFolderByName(volumeNode.GetName() + " split")
 
         # Generate all possible camera positions
-        logging.info(f"Generating {nPossibleCameras} possible cameras...")
         camOffset = self.ui.camOffSetSpin.value
-        cameras = RadiographGeneration.generateNCameras(nPossibleCameras, bounds, camOffset, [width, height])
+        cameras = RadiographGeneration.generateNCameras(
+            nPossibleCameras, bounds, camOffset, [width, height], self.ui.camDebugCheckbox.isChecked()
+        )
 
-        self.updateProgressBar(13)
+        self.updateProgressBar(10)
 
         # Generate initial VRG for each camera
-        tmpDir = self.ui.vrgTempDir.text
-        for i, cam in enumerate(cameras):
-            logging.info(f"Generating VRG for camera {i}")
-            cameraDir = os.path.join(mainOutputDir, tmpDir, f"cam{cam.id}")
-            if not os.path.exists(cameraDir):
-                os.makedirs(cameraDir)
-            RadiographGeneration.generateVRG(cam, newVolumeNode, os.path.join(cameraDir, "1.tif"), width, height)
-            self.updateProgressBar(((i + 1) / nPossibleCameras) * 29 + 13)
+        self.logic.generateVRGForCameras(
+            cameras,
+            volumeImageData,
+            os.path.join(mainOutputDir, tmpDir),
+            width,
+            height,
+            progressCallback=self.updateProgressBar,
+        )
 
-        # Want to find the best nOptimizedCameras cameras that have the best DID
+        # Optimize the camera positions
         bestCameras = RadiographGeneration.optimizeCameras(
             cameras, os.path.join(mainOutputDir, tmpDir), nOptimizedCameras, progressCallback=self.updateProgressBar
         )
 
-        # Generate the camera calibration files and VRGs for the best cameras
-        cameraSubDir = self.ui.cameraSubDir.text
-        vrgSubDir = self.ui.vrgSubDir.text
-        for i, cam in enumerate(bestCameras):
-            logging.info(f"Generating camera calibration file and VRG for camera {i}")
-            if not os.path.exists(os.path.join(mainOutputDir, cameraSubDir)):
-                os.makedirs(os.path.join(mainOutputDir, cameraSubDir))
-            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraSubDir, f"cam{cam.id}.yaml"))
-            cameraDir = os.path.join(mainOutputDir, vrgSubDir, f"cam{cam.id}")
-            if not os.path.exists(cameraDir):
-                os.makedirs(cameraDir)
-            # Copy the VRG to the final directory
-            shutil.copyfile(
-                os.path.join(mainOutputDir, tmpDir, f"cam{cam.id}", "1.tif"), os.path.join(cameraDir, "1.tif")
-            )
-            progress = ((i + 1) / nOptimizedCameras) * 29 + 71
-            self.updateProgressBar(progress)
+        # Move the optimized VRGs to the final directory and generate the camera calibration files
+        self.logic.generateCameraCalibrationFiles(
+            bestCameras,
+            os.path.join(mainOutputDir, tmpDir),
+            os.path.join(mainOutputDir, vrgSubDir),
+            os.path.join(mainOutputDir, cameraSubDir),
+            progressCallback=self.updateProgressBar,
+        )
 
-        # remove temp directory
+        # Clean Up
         if self.ui.removeVrgTmp.isChecked():
             shutil.rmtree(os.path.join(mainOutputDir, tmpDir))
 
-        # remove subvolume node
-        # slicer.mrmlScene.RemoveNode(newVolumeNode)
-
     def onGenerateConfig(self):
         """
-        NOTE - This function is not currently in use
-
         Generates a complete config file (including all partial volumes, radiographs,
         and camera calibration files) for Autoscoper.
         """
         volumeNode = self.ui.volumeSelector.currentNode()
-        if not volumeNode:
-            logging.error("Failed to generate config: no volume selected")
-            return
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        if mainOutputDir is None or mainOutputDir == "":
-            logging.error("Failed to generate config: no output directory selected")
-            return
-        if not os.path.exists(mainOutputDir):
-            os.makedirs(mainOutputDir)
-
         trialName = self.ui.trialName.text
-
         width = self.ui.vrgRes_width.value
         height = self.ui.vrgRes_height.value
+
+        tiffSubDir = self.ui.tiffSubDir.text
+        vrgSubDir = self.ui.vrgSubDir.text
+        calibrationSubDir = self.ui.cameraSubDir.text
+
+        # Validate the inputs
+        if not self.logic.validateInputs(
+            volumeNode=volumeNode,
+            mainOutputDir=mainOutputDir,
+            trialName=trialName,
+            width=width,
+            height=height,
+            volumeSubDir=tiffSubDir,
+            vrgSubDir=vrgSubDir,
+            calibrationSubDir=calibrationSubDir,
+        ):
+            raise ValueError("Invalid inputs")
+            return
+        if not self.logic.validatePaths(
+            mainOutputDir=mainOutputDir,
+            tiffDir=os.path.join(mainOutputDir, tiffSubDir),
+            vrgDir=os.path.join(mainOutputDir, vrgSubDir),
+            calibDir=os.path.join(mainOutputDir, calibrationSubDir),
+        ):
+            raise ValueError("Invalid paths")
+            return
 
         optimizationOffsets = [
             self.ui.optOffX.value,
@@ -534,23 +543,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             int(self.ui.flipZ.isChecked()),
         ]
 
-        # Validate the directory structure
-        tiffSubDir = self.ui.tiffSubDir.text
-        vrgSubDir = self.ui.vrgSubDir.text
-        calibrationSubDir = self.ui.cameraSubDir.text
-
-        if not os.path.exists(os.path.join(mainOutputDir, tiffSubDir)):
-            logging.error(f"Failed to generate config file: {tiffSubDir} not found")
-            return
-        if not os.path.exists(os.path.join(mainOutputDir, vrgSubDir)):
-            logging.error(f"Failed to generate config file: {vrgSubDir} not found")
-            return
-        if not os.path.exists(os.path.join(mainOutputDir, calibrationSubDir)):
-            logging.error(f"Failed to generate config file: {calibrationSubDir} not found")
-            return
-
         # generate the config file
-        logging.info("Generating config file")
         configFilePath = IO.generateConfigFile(
             mainOutputDir,
             [tiffSubDir, vrgSubDir, calibrationSubDir],
@@ -573,8 +566,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         volumeNode = self.ui.volumeSelector.currentNode()
 
-        if not volumeNode:
-            logging.error("No volume selected")
+        if not self.logic.validateInputs(voluemNode=volumeNode):
+            raise ValueError("Invalid inputs")
             return
 
         if self.ui.segGen_autoRadioButton.isChecked():
@@ -586,20 +579,20 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
         elif self.ui.segGen_fileRadioButton.isChecked():
             segmentationFileDir = self.ui.segGen_lineEdit.currentPath
-            if not segmentationFileDir or not os.path.exists(segmentationFileDir):
-                logging.error("No segmentation directory selected")
+            if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
+                raise ValueError("Invalid paths")
                 return
             segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
             segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
             segmentationNode.CreateDefaultDisplayNodes()
-            for i, file in enumerate(segmentationFiles):
+            for idx, file in enumerate(segmentationFiles):
                 returnedNode = IO.loadSegmentation(segmentationNode, file)
                 if returnedNode:
                     # get the segment from the returned node and add it to the segmentation node
                     segment = returnedNode.GetSegmentation().GetNthSegment(0)
                     segmentationNode.GetSegmentation().AddSegment(segment)
                     slicer.mrmlScene.RemoveNode(returnedNode)
-                self.ui.progressBar.setValue((i + 1) / len(segmentationFiles) * 100)
+                self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
         else:  # Should never happen but just in case
             logging.error("No segmentation method selected")
             return
@@ -782,8 +775,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         segmentIDs = vtk.vtkStringArray()
         segmentationNode.GetSegmentation().GetSegmentIDs(segmentIDs)
         numSegments = segmentIDs.GetNumberOfValues()
-        for i in range(numSegments):
-            segmentID = segmentIDs.GetValue(i)
+        for idx in range(numSegments):
+            segmentID = segmentIDs.GetValue(idx)
             segmentName = segmentationNode.GetSegmentation().GetSegment(segmentID).GetName()
             segmentVolume = SubVolumeExtraction.extractSubVolume(volumeNode, segmentationNode, segmentID)
             segmentVolume.SetName(segmentName)
@@ -796,7 +789,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             IO.writeTFMFile(filename, [1, 1, spacing[2]], origin)
             self.showVolumeIn3D(segmentVolume)
             # update progress bar
-            progressCallback((i + 1) / numSegments * 100)
+            progressCallback((idx + 1) / numSegments * 100)
         # Set the  volumeNode to be the active volume
         slicer.app.applicationLogic().GetSelectionNode().SetActiveVolumeID(volumeNode.GetID())
         # Reset the slice field of views
@@ -811,3 +804,231 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         volumeNode.AddAndObserveDisplayNodeID(displayNode.GetID())
         logic.UpdateDisplayNodeFromVolumeNode(displayNode, volumeNode)
         slicer.mrmlScene.RemoveNode(slicer.util.getNode("Volume rendering ROI"))
+
+    def validateInputs(self, *args: tuple, **kwargs: dict) -> bool:
+        """
+        Validates that the provided inputs are not None.
+
+        :param args: list of inputs to validate
+        :type args: tuple
+
+        :param kwargs: list of inputs to validate
+        :type kwargs: dict
+
+        :return: True if all inputs are valid, False otherwise
+        :rtype: bool
+        """
+        statuses = []
+        for arg in args:
+            status = True
+            if arg is None:
+                logging.error(f"{arg} is None")
+                status = False
+            if isinstance(arg, str) and arg == "":
+                logging.error(f"{arg} is an empty string")
+                status = False
+            statuses.append(status)
+
+        for name, arg in kwargs.items():
+            status = True
+            if arg is None:
+                logging.error(f"{name} is None")
+                status = False
+            if isinstance(arg, str) and arg == "":
+                logging.error(f"{name} is an empty string")
+                status = False
+            statuses.append(status)
+
+        return all(statuses)
+
+    def validatePaths(self, *args: tuple, **kwargs: dict) -> bool:
+        """
+        Checks that the provided paths exist.
+
+        :param args: list of paths to validate
+        :type args: tuple
+
+        :param kwargs: list of paths to validate
+        :type kwargs: dict
+
+        :return: True if all paths exist, False otherwise
+        :rtype: bool
+        """
+        statuses = []
+        for arg in args:
+            status = True
+            if not os.path.exists(arg):
+                logging.error(f"{arg} does not exist")
+                status = False
+            statuses.append(status)
+
+        for name, path in kwargs.items():
+            status = True
+            if not os.path.exists(path):
+                logging.error(f"{name} ({path}) does not exist")
+                status = False
+            statuses.append(status)
+
+        return all(statuses)
+
+    def createPathsIfNotExists(self, *args: tuple) -> None:
+        """
+        Creates a path if it does not exist.
+
+        :param args: list of paths to create
+        :type args: tuple
+        """
+        for arg in args:
+            if not os.path.exists(arg):
+                os.makedirs(arg)
+
+    def extractSubVolumeForVRG(
+        self,
+        volumeNode: slicer.vtkMRMLVolumeNode,
+        segmentationNode: slicer.vtkMRMLSegmentationNode,
+        cameraDebugMode: bool = False,
+    ) -> tuple[vtk.vtkImageData, list[float]]:
+        """
+        Extracts a subvolume from the volumeNode that contains all of the segments in the segmentationNode
+
+        :param volumeNode: volume node
+        :type volumeNode: slicer.vtkMRMLVolumeNode
+        :param segmentationNode: segmentation node
+        :type segmentationNode: slicer.vtkMRMLSegmentationNode
+        :param cameraDebugMode: Whether or not to keep the extracted volume in the scene, defaults to False
+        :type cameraDebugMode: bool, optional
+
+        :return: tuple containing the extracted volume and the bounds of the volume
+        :rtype: tuple[vtk.vtkImageData, list[float]]
+        """
+        mergedSegmentationNode = SubVolumeExtraction.mergeSegments(volumeNode, segmentationNode)
+        newVolumeNode = SubVolumeExtraction.extractSubVolume(
+            volumeNode, mergedSegmentationNode, mergedSegmentationNode.GetSegmentation().GetNthSegmentID(0)
+        )
+        newVolumeNode.SetName(volumeNode.GetName() + " - Bone Subvolume")
+
+        bounds = [0, 0, 0, 0, 0, 0]
+        newVolumeNode.GetBounds(bounds)
+
+        # Copy the metadata from the original volume into the ImageData
+        newVolumeImageData = vtk.vtkImageData()
+        newVolumeImageData.DeepCopy(newVolumeNode.GetImageData())  # So we don't modify the original volume
+        newVolumeImageData.SetSpacing(newVolumeNode.GetSpacing())
+        origin = list(newVolumeNode.GetOrigin())
+        origin[0:2] = [x * -1 for x in origin[0:2]]
+        newVolumeImageData.SetOrigin(origin)
+
+        # Ensure we are in the correct orientation (RAS vs LPS)
+        imageReslice = vtk.vtkImageReslice()
+        imageReslice.SetInputData(newVolumeImageData)
+
+        axes = vtk.vtkMatrix4x4()
+        axes.Identity()
+        axes.SetElement(0, 0, -1)
+        axes.SetElement(1, 1, -1)
+
+        imageReslice.SetResliceAxes(axes)
+        imageReslice.Update()
+        newVolumeImageData = imageReslice.GetOutput()
+
+        if not cameraDebugMode:
+            slicer.mrmlScene.RemoveNode(newVolumeNode)
+            slicer.mrmlScene.RemoveNode(mergedSegmentationNode)
+
+        return newVolumeImageData, bounds
+
+    def generateVRGForCameras(
+        self,
+        cameras: list[RadiographGeneration.Camera],
+        volumeImageData: vtk.vtkImageData,
+        outputDir: str,
+        width: int,
+        height: int,
+        progressCallback=None,
+    ) -> None:
+        """
+        Generates VRG files for each camera in the cameras list
+
+        :param cameras: list of cameras
+        :type cameras: list[RadiographGeneration.Camera]
+        :param volumeImageData: volume image data
+        :type volumeImageData: vtk.vtkImageData
+        :param outputDir: output directory
+        :type outputDir: str
+        :param width: width of the radiographs
+        :type width: int
+        :param height: height of the radiographs
+        :type height: int
+        :param progressCallback: progress callback, defaults to None
+        :type progressCallback: callable, optional
+        """
+        self.createPathsIfNotExists(outputDir)
+
+        if not progressCallback:
+            logging.warning(
+                "[AutoscoperM.logic.generateVRGForCameras] "
+                "No progress callback provided, progress bar will not be updated"
+            )
+
+            def progressCallback(x):
+                return x
+
+        for idx, cam in enumerate(cameras):
+            cameraDir = os.path.join(outputDir, f"cam{cam.id}")
+            self.createPathsIfNotExists(cameraDir)
+            RadiographGeneration.generateVRG(
+                cam,
+                volumeImageData,
+                os.path.join(
+                    cameraDir, "1.tif"
+                ),  # When we expand to multiple radiographs, this will need to be updated
+                width,
+                height,
+            )
+            progress = ((idx + 1) / len(cameras)) * 30 + 10
+            progressCallback(progress)
+
+    def generateCameraCalibrationFiles(
+        self,
+        bestCameras: list[RadiographGeneration.Camera],
+        tmpDir: str,
+        finalDir: str,
+        calibDir: str,
+        progressCallback: Optional[callable] = None,
+    ) -> None:
+        """
+        Copies the optimized VRGs from the temporary directory to the final directory
+        and generates the camera calibration files
+
+        :param bestCameras: list of optimized cameras
+        :type bestCameras: list[RadiographGeneration.Camera]
+        :param tmpDir: temporary directory
+        :type tmpDir: str
+        :param finalDir: final directory
+        :type finalDir: str
+        :param calibDir: calibration directory
+        :type calibDir: str
+        :param progressCallback: progress callback, defaults to None
+        :type progressCallback: callable, optional
+        """
+        self.validatePaths(tmpDir=tmpDir)
+        self.createPathsIfNotExists(finalDir, calibDir)
+        if not progressCallback:
+            logging.warning(
+                "[AutoscoperM.logic.generateCameraCalibrationFiles] "
+                "No progress callback provided, progress bar will not be updated"
+            )
+
+            def progressCallback(x):
+                return x
+
+        for idx, cam in enumerate(bestCameras):
+            IO.generateCameraCalibrationFile(cam, os.path.join(calibDir, f"cam{cam.id}.yaml"))
+            cameraDir = os.path.join(finalDir, f"cam{cam.id}")
+            self.createPathsIfNotExists(cameraDir)
+            # Copy all tif files from the tmp to the final directory
+            for file in glob.glob(os.path.join(tmpDir, f"cam{cam.id}", "*.tif")):
+                shutil.copy(file, cameraDir)
+
+            progress = ((idx + 1) / len(bestCameras)) * 10 + 90
+            progressCallback(progress)

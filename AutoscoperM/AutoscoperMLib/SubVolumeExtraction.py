@@ -5,38 +5,6 @@ import slicer
 import vtk
 
 
-def automaticExtraction(
-    volumeNode: slicer.vtkMRMLVolumeNode,
-    threshold: int,
-    segmentationName: Optional[str] = None,
-    progressCallback: Optional[callable] = None,
-    maxProgressValue: int = 100,
-) -> slicer.vtkMRMLVolumeNode:
-    """
-    Automatic extraction of a sub volume node using the threshold value.
-
-    :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
-
-    :param threshold: Threshold value
-    :type threshold: int
-
-    :param progressCallback: Progress callback. Default is None.
-    :type progressCallback: callable
-
-    :param maxProgressValue: Maximum progress value. Default is 100.
-    :type maxProgressValue: int
-
-    :return: SubVolume node
-    :rtype: slicer.vtkMRMLVolumeNode
-    """
-    segmentationNode = automaticSegmentation(
-        volumeNode, threshold, segmentationName, progressCallback, maxProgressValue
-    )
-    _mergeSegments(volumeNode, segmentationNode)
-    return extractSubVolume(volumeNode, segmentationNode)
-
-
 def automaticSegmentation(
     volumeNode: slicer.vtkMRMLVolumeNode,
     threshold: int,
@@ -178,27 +146,52 @@ def extractSubVolume(
     return _getItemFromFolder(folderName)
 
 
-def _mergeSegments(volumeNode: slicer.vtkMRMLVolumeNode, segmentationNode: slicer.vtkMRMLSegmentationNode) -> None:
+def mergeSegments(
+    volumeNode: slicer.vtkMRMLVolumeNode,
+    segmentationNode: slicer.vtkMRMLSegmentationNode,
+    newSegmentationNode: bool = True,
+) -> Optional[slicer.vtkMRMLSegmentationNode]:
     """ "
-    Merges all segments in the segmentation node.
+    Merges all segments in the segmentation node into one segment.
+    If newSegmentationNode is True, a new segmentation node is created.
+    Otherwise the merge is performed in place on the given segmentation node.
 
     :param volumeNode: Volume node
     :type volumeNode: slicer.vtkMRMLVolumeNode
 
     :param segmentationNode: Segmentation node.
     :type segmentationNode: slicer.vtkMRMLSegmentationNode
+
+    :param newSegmentationNode: If True, a new node is created. Otherwise it is performed in place. Default is True.
+    :type newSegmentationNode: bool
+
+    :return: Segmentation node with the merged segments. If newSegmentationNode is False, None is returned.
+    :rtype: slicer.vtkMRMLSegmentationNode | None
     """
+    mergeNode = segmentationNode
+    if newSegmentationNode:
+        mergeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+        mergeNode.CreateDefaultDisplayNodes()  # only needed for display
+        mergeNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
+        # copy segments over
+        for i in range(segmentationNode.GetSegmentation().GetNumberOfSegments()):
+            segment = segmentationNode.GetSegmentation().GetNthSegment(i)
+            mergeNode.GetSegmentation().CopySegmentFromSegmentation(
+                segmentationNode.GetSegmentation(), segment.GetName()
+            )
+        mergeNode.SetName(segmentationNode.GetName() + " merged")
+
     # Create segment editor to get access to effects
     segmentationEditorWidget = slicer.qMRMLSegmentEditorWidget()
     segmentationEditorWidget.setMRMLScene(slicer.mrmlScene)
     segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
     segmentationEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
-    segmentationEditorWidget.setSegmentationNode(segmentationNode)
+    segmentationEditorWidget.setSegmentationNode(mergeNode)
     segmentationEditorWidget.setSourceVolumeNode(volumeNode)
 
     # Merge Segments
     inputSegmentIDs = vtk.vtkStringArray()
-    segmentationNode.GetDisplayNode().GetVisibleSegmentIDs(inputSegmentIDs)
+    mergeNode.GetDisplayNode().GetVisibleSegmentIDs(inputSegmentIDs)
 
     segmentationEditorWidget.setCurrentSegmentID(inputSegmentIDs.GetValue(0))
     for i in range(1, inputSegmentIDs.GetNumberOfValues()):
@@ -213,11 +206,15 @@ def _mergeSegments(volumeNode: slicer.vtkMRMLVolumeNode, segmentationNode: slice
         effect.self().onApply()
 
         # delete the segment
-        segmentationNode.GetSegmentation().RemoveSegment(segmentID_to_add)
+        mergeNode.GetSegmentation().RemoveSegment(segmentID_to_add)
 
     # Clean up
     segmentationEditorWidget = None
     slicer.mrmlScene.RemoveNode(segmentEditorNode)
+
+    if newSegmentationNode:
+        return mergeNode
+    return None
 
 
 def _fillHole(segmentID: str, segmentationEditorWidget: slicer.qMRMLSegmentEditorWidget, marginSize: int) -> None:
