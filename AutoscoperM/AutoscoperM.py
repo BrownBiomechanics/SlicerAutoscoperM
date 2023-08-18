@@ -35,7 +35,9 @@ class AutoscoperM(ScriptedLoadableModule):
         self.parent.categories = [
             "Tracking",
         ]
-        self.parent.dependencies = []
+        self.parent.dependencies = [
+            "VirtualRadiographGeneration",
+        ]
         self.parent.contributors = [
             "Anthony Lombardi (Kitware)",
             "Amy M Morton (Brown University)",

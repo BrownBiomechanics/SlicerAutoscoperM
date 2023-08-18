@@ -53,6 +53,7 @@ endif()
 # Extension modules
 add_subdirectory(AutoscoperM)
 add_subdirectory(TrackingEvaluation)
+add_subdirectory(CalculateDataIntensityDensity)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------

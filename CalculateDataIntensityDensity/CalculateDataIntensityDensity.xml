@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Tracking</category>
+  <index>0</index>
+  <title>CalculateDataIntensityDensity</title>
+  <description><![CDATA[Calculate the data intensity density of the provided radiograph.]]></description>
+  <version>0.1.0.</version>
+  <documentation-url>https://autoscoperm.slicer.org/</documentation-url>
+  <license/>
+  <contributor>Anthony Lombardi (Kitware)</contributor>
+  <contributor>Amy M Morton (Brown University)</contributor>
+  <contributor>Bardiya Akhbari (Brown University)</contributor>
+  <contributor>Beatriz Paniagua (Kitware)</contributor>
+  <contributor>Jean-Christophe Fillion-Robin (Kitware)</contributor>
+  <acknowledgements><![CDATA[The SlicerAutoscoperM developers gratefully acknowledge funding for this project provided by NIH NIAMS R01AR078924 (Multi-modal Tracking of In Vivo Skeletal Structures and Implants).]]></acknowledgements>
+  <parameters>
+    <string>
+      <name>whiteRadiographFileName</name>
+      <label>White Radiograph File Name</label>
+      <index>1</index>
+      <description><![CDATA[Path to the white radiograph used to calculate data intensity density]]></description>
+      <channel>input</channel>
+    </string>
+    <float>
+      <name>DID</name>
+      <label>Data Intensity Density (DID)</label>
+      <index>2</index>
+      <description><![CDATA[Calculated data intensity density]]></description>
+      <channel>output</channel>
+    </float>
+    <label>IO</label>
+    <description><![CDATA[Input/output parameters]]></description>
+  </parameters>
+</executable>

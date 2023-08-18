@@ -149,91 +149,6 @@ def generateNCameras(
     return cameras
 
 
-def generateVRG(
-    camera: Camera,
-    volumeImageData: vtk.vtkImageData,
-    outputFileName: str,
-    width: int,
-    height: int,
-) -> None:
-    """
-    Generate a virtual radiograph from the given camera and volume node
-
-    :param camera: Camera
-    :type camera: Camera
-
-    :param volumeImageData: Volume image data
-    :type volumeImageData: vtk.vtkImageData
-
-    :param outputFileName: Output file name
-    :type outputFileName: str
-
-    :param width: Width of the output image.
-    :type width: int
-
-    :param height: Height of the output image.
-    :type height: int
-    """
-
-    # create the renderer
-    renderer = vtk.vtkRenderer()
-    renderer.SetBackground(1, 1, 1)
-
-    # create the render window
-    renderWindow = vtk.vtkRenderWindow()
-    renderWindow.SetOffScreenRendering(1)
-    renderWindow.SetSize(width, height)
-    renderWindow.AddRenderer(renderer)
-
-    # create the volume mapper
-    volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
-    volumeMapper.SetInputData(volumeImageData)
-    volumeMapper.SetBlendModeToComposite()
-
-    # create the volume property
-    volumeProperty = vtk.vtkVolumeProperty()
-    volumeProperty.SetInterpolationTypeToLinear()
-    volumeProperty.ShadeOn()
-    volumeProperty.SetAmbient(0.1)
-    volumeProperty.SetDiffuse(0.9)
-    volumeProperty.SetSpecular(0.2)
-
-    # create a piecewise function for scalar opacity
-    opacityTransferFunction = vtk.vtkPiecewiseFunction()
-    opacityTransferFunction.AddPoint(-10000, 0.05)
-    opacityTransferFunction.AddPoint(0, 0.00)
-    opacityTransferFunction.AddPoint(400, 0.05)
-    volumeProperty.SetScalarOpacity(opacityTransferFunction)
-
-    # create the volume
-    volume = vtk.vtkVolume()
-    volume.SetMapper(volumeMapper)
-    volume.SetProperty(volumeProperty)
-
-    # add the volume to the renderer
-    renderer.AddVolume(volume)
-    renderer.SetActiveCamera(camera.vtkCamera)
-
-    # render the image
-    renderWindow.Render()
-
-    # save the image
-    writer = vtk.vtkTIFFWriter()
-    writer.SetFileName(outputFileName)
-
-    windowToImageFilter = vtk.vtkWindowToImageFilter()
-    windowToImageFilter.SetInput(renderWindow)
-    windowToImageFilter.SetScale(1)
-    windowToImageFilter.SetInputBufferTypeToRGB()
-
-    # convert the imag to grayscale
-    luminance = vtk.vtkImageLuminance()
-    luminance.SetInputConnection(windowToImageFilter.GetOutputPort())
-
-    writer.SetInputConnection(luminance.GetOutputPort())
-    writer.Write()
-
-
 def _calculateDataIntensityDensity(camera: Camera, whiteRadiographFName: str) -> None:
     """
     Calculates the data intensity density of the given camera on its corresponding white radiograph.
@@ -323,12 +238,33 @@ def optimizeCameras(
         def progressCallback(_x):
             return None
 
+    # Parallel calls to cliModule
+    cliModule = slicer.modules.calculatedataintensitydensity
+    cliNodes = []
     for i in range(len(cameras)):
         camera = cameras[i]
         vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
-        _calculateDataIntensityDensity(camera, vrgFName)
+        # _calculateDataIntensityDensity(camera, vrgFName)
+        cliNode = slicer.cli.run(
+            cliModule,
+            None,
+            {"whiteRadiographFileName": vrgFName},
+            wait_for_completion=False,
+        )
+        cliNodes.append(cliNode)
+
+    for i in range(len(cameras)):
+        while cliNodes[i].GetStatusString() != "Completed":
+            slicer.app.processEvents()
+        if cliNode.GetStatus() & cliNode.ErrorsMask:
+            # error
+            errorText = cliNode.GetErrorText()
+            slicer.mrmlScene.RemoveNode(cliNode)
+            raise ValueError("CLI execution failed: " + errorText)
+        cameras[i].DID = float(cliNodes[i].GetOutputText())  # cliNodes[i].GetParameterAsString("dataIntensityDensity")
         progress = ((i + 1) / len(cameras)) * 50 + 40
         progressCallback(progress)
+        slicer.mrmlScene.RemoveNode(cliNodes[i])
 
     cameras.sort(key=lambda x: x.DID)
 
