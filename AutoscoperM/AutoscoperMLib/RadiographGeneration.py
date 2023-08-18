@@ -318,12 +318,33 @@ def optimizeCameras(
         def progressCallback(_x):
             return None
 
+    # Parallel calls to cliModule
+    cliModule = slicer.modules.calculatedataintensitydensity
+    cliNodes = []
     for i in range(len(cameras)):
         camera = cameras[i]
         vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
-        _calculateDataIntensityDensity(camera, vrgFName)
+        # _calculateDataIntensityDensity(camera, vrgFName)
+        cliNode = slicer.cli.run(
+            cliModule,
+            None,
+            {"whiteRadiographFName": vrgFName},
+            wait_for_completion=False,
+        )
+        cliNodes.append(cliNode)
+
+    for i in range(len(cameras)):
+        while cliNodes[i].GetStatusString() != "Completed":
+            slicer.app.processEvents()
+        if cliNode.GetStatus() & cliNode.ErrorsMask:
+            # error
+            errorText = cliNode.GetErrorText()
+            slicer.mrmlScene.RemoveNode(cliNode)
+            raise ValueError("CLI execution failed: " + errorText)
+        cameras[i].DID = float(cliNodes[i].GetOutputText())  # cliNodes[i].GetParameterAsString("dataIntensityDensity")
         progress = ((i + 1) / len(cameras)) * 50 + 40
         progressCallback(progress)
+        slicer.mrmlScene.RemoveNode(cliNodes[i])
 
     cameras.sort(key=lambda x: x.DID)
 

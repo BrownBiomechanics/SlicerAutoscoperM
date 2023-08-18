@@ -37,6 +37,7 @@ endif()
 # Extension modules
 add_subdirectory(AutoscoperM)
 add_subdirectory(TrackingEvaluation)
+add_subdirectory(calculateDataIntensityDensity)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
