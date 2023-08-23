@@ -942,20 +942,45 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             def progressCallback(x):
                 return x
 
-        for i, cam in enumerate(cameras):
+        # write a temporary volume to disk
+        volumeFName = "AutoscoperM_VRG_GEN_TEMP.mhd"
+        IO.writeTemporyFile(volumeFName, volumeImageData)
+
+        # Start a CLI node for each camera
+        cliModule = slicer.modules.virtualradiographgeneration
+        cliNodes = []
+        for cam in cameras:
             cameraDir = os.path.join(outputDir, f"cam{cam.id}")
             self.createPathsIfNotExists(cameraDir)
-            RadiographGeneration.generateVRG(
-                cam,
-                volumeImageData,
-                os.path.join(
-                    cameraDir, "1.tif"
-                ),  # When we expand to multiple radiographs, this will need to be updated
-                width,
-                height,
-            )
+            camera = cam.vtkCamera
+            parameters = {
+                "inputVolumeFName": os.path.join(slicer.app.temporaryPath, volumeFName),
+                "cameraPosition": [camera.GetPosition()[0], camera.GetPosition()[1], camera.GetPosition()[2]],
+                "cameraFocalPoint": [camera.GetFocalPoint()[0], camera.GetFocalPoint()[1], camera.GetFocalPoint()[2]],
+                "cameraViewUp": [camera.GetViewUp()[0], camera.GetViewUp()[1], camera.GetViewUp()[2]],
+                "cameraViewAngle": camera.GetViewAngle(),
+                "clippingRange": [camera.GetClippingRange()[0], camera.GetClippingRange()[1]],
+                "width": width,
+                "height": height,
+                "outputFName": os.path.join(cameraDir, "1.tif"),
+            }
+            cliNode = slicer.cli.run(cliModule, None, parameters)  # run asynchronously
+            cliNodes.append(cliNode)
+
+        # Wait for all the CLI nodes to finish
+        for i, cliNode in enumerate(cliNodes):
+            while cliNodes[i].GetStatusString() != "Completed":
+                slicer.app.processEvents()
+            if cliNode.GetStatus() & cliNode.ErrorsMask:
+                # error
+                errorText = cliNode.GetErrorText()
+                slicer.mrmlScene.RemoveNode(cliNode)
+                raise ValueError("CLI execution failed: " + errorText)
+            slicer.mrmlScene.RemoveNode(cliNode)
             progress = ((i + 1) / len(cameras)) * 30 + 10
             progressCallback(progress)
+
+        IO.removeTemporyFile(volumeFName)
 
     def moveOptimizedVRGsAndGenCalibFiles(
         self,

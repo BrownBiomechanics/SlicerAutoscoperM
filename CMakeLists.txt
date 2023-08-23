@@ -38,6 +38,7 @@ endif()
 add_subdirectory(AutoscoperM)
 add_subdirectory(TrackingEvaluation)
 add_subdirectory(calculateDataIntensityDensity)
+add_subdirectory(virtualRadiographGeneration)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
