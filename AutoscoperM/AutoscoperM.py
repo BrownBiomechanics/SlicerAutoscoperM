@@ -36,6 +36,7 @@ class AutoscoperM(ScriptedLoadableModule):
             "Tracking",
         ]
         self.parent.dependencies = [
+            "CalculateDataIntensityDensity",
             "VirtualRadiographGeneration",
         ]
         self.parent.contributors = [
@@ -975,19 +976,45 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             def progressCallback(x):
                 return x
 
-        for idx, cam in enumerate(cameras):
+        # write a temporary volume to disk
+        volumeFName = "AutoscoperM_VRG_GEN_TEMP.mhd"
+        IO.writeTemporyFile(volumeFName, volumeImageData)
+
+        # Execute CLI for each camera
+        cliModule = slicer.modules.virtualradiographgeneration
+        cliNodes = []
+        for cam in cameras:
             cameraDir = os.path.join(outputDir, f"cam{cam.id}")
             self.createPathsIfNotExists(cameraDir)
-            RadiographGeneration.generateVRG(
-                cam,
-                volumeImageData,
-                os.path.join(
-                    cameraDir, "1.tif"
-                ),  # When we expand to multiple radiographs, this will need to be updated
-                width,
-                height,
-            )
-            progress = ((idx + 1) / len(cameras)) * 30 + 10
+            camera = cam.vtkCamera
+            parameters = {
+                "inputVolumeFileName": os.path.join(slicer.app.temporaryPath, volumeFileName),
+                "cameraPosition": [camera.GetPosition()[0], camera.GetPosition()[1], camera.GetPosition()[2]],
+                "cameraFocalPoint": [camera.GetFocalPoint()[0], camera.GetFocalPoint()[1], camera.GetFocalPoint()[2]],
+                "cameraViewUp": [camera.GetViewUp()[0], camera.GetViewUp()[1], camera.GetViewUp()[2]],
+                "cameraViewAngle": camera.GetViewAngle(),
+                "clippingRange": [camera.GetClippingRange()[0], camera.GetClippingRange()[1]],
+                "outputWidth": width,
+                "outputHeight": height,
+                "outputFileName": os.path.join(cameraDir, "1.tif"),
+            }
+            cliNode = slicer.cli.run(cliModule, None, parameters)  # run asynchronously
+            cliNodes.append(cliNode)
+
+        # Note: CLI nodes are currently not executed in parallel. See https://github.com/Slicer/Slicer/pull/6723
+        # This just allows the UI to remain responsive while the CLI nodes are running for now.
+
+        # Wait for all the CLI nodes to finish
+        for i, cliNode in enumerate(cliNodes):
+            while cliNodes[i].GetStatusString() != "Completed":
+                slicer.app.processEvents()
+            if cliNode.GetStatus() & cliNode.ErrorsMask:
+                # error
+                errorText = cliNode.GetErrorText()
+                slicer.mrmlScene.RemoveNode(cliNode)
+                raise ValueError("CLI execution failed: " + errorText)
+            slicer.mrmlScene.RemoveNode(cliNode)
+            progress = ((i + 1) / len(cameras)) * 30 + 10
             progressCallback(progress)
 
     def generateCameraCalibrationFiles(

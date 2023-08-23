@@ -294,3 +294,39 @@ def writeTFMFile(filename: str, spacing: list[float], origin: list[float]):
     slicer.util.exportNode(transformNode, filename)
 
     slicer.mrmlScene.RemoveNode(transformNode)
+
+
+def writeTemporyFile(filename: str, data: vtk.vtkImageData) -> str:
+    """
+    Writes a temporary file to the slicer temp directory
+
+    :param filename: Output file name
+    :type filename: str
+
+    :param data: data
+    :type data: vtk.vtkImageData
+
+    :return: Path to the file
+    :rtype: str
+    """
+
+    slicerTempDirectory = slicer.app.temporaryPath
+
+    # write vtk image data as a vtk file
+    writer = vtk.vtkMetaImageWriter()
+    writer.SetFileName(os.path.join(slicerTempDirectory, filename))
+    writer.SetInputData(data)
+    writer.Write()
+    return writer.GetFileName()
+
+
+def removeTemporyFile(filename: str):
+    """
+    Removes a temporary file from the slicer temp directory
+
+    :param filename: Output file name
+    :type filename: str
+    """
+
+    slicerTempDirectory = slicer.app.temporaryPath
+    os.remove(os.path.join(slicerTempDirectory, filename))

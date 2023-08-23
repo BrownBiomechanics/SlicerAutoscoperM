@@ -149,66 +149,6 @@ def generateNCameras(
     return cameras
 
 
-def _calculateDataIntensityDensity(camera: Camera, whiteRadiographFName: str) -> None:
-    """
-    Calculates the data intensity density of the given camera on its corresponding white radiograph.
-    Internal function used by :func:`optimizeCameras`.
-
-    :param camera: Camera
-    :type camera: Camera
-
-    :param whiteRadiographFName: White radiograph file name
-    :type whiteRadiographFName: str
-    """
-
-    import numpy as np
-    import SimpleITK as sitk
-
-    MEAN_COMPARISON = 170  # 255 / 3 * 2
-
-    # Read in the white radiograph
-    whiteRadiograph = sitk.ReadImage(whiteRadiographFName)
-
-    # Superpixel Segmentation
-    slicImageFilter = sitk.SLICImageFilter()
-    slicImageFilter.SetSuperGridSize([15, 15, 15])  # smaller grid size = finer grid overall default is [50,50,50]
-    labelImage = slicImageFilter.Execute(whiteRadiograph)
-
-    # Get the mean pixel value for each label
-    labelStatsFilter = sitk.LabelStatisticsImageFilter()
-    labelStatsFilter.Execute(whiteRadiograph, labelImage)
-    N = labelStatsFilter.GetNumberOfLabels()
-    meanColor = np.zeros((N, 1))
-    m, n = labelImage.GetSize()
-    labels = list(labelStatsFilter.GetLabels())
-    labels.sort()
-    for i, label in enumerate(labels):
-        meanColor[i, 0] = labelStatsFilter.GetMean(label)
-
-    # Create a binary label from the labelImage where all '1' are labels whose meanColor are < 255/3
-    labelShapeFilter = sitk.LabelShapeStatisticsImageFilter()
-    labelShapeFilter.Execute(labelImage)
-    binaryLabels = np.zeros((m, n))
-    for i, label in enumerate(labels):
-        if label == 0:
-            continue
-        if meanColor[i, 0] < MEAN_COMPARISON:
-            pixels = list(labelShapeFilter.GetIndexes(label))
-            for j in range(0, len(pixels), 2):
-                y = pixels[j]
-                x = pixels[j + 1]
-                binaryLabels[x, y] = 1
-
-    # Calculate the Data Intensity Density
-    # Largest Region based off of https://discourse.itk.org/t/simpleitk-extract-largest-connected-component-from-binary-image/4958/2
-    binaryImage = sitk.Cast(sitk.GetImageFromArray(binaryLabels), sitk.sitkUInt8)
-    componentImage = sitk.ConnectedComponent(binaryImage)
-    sortedComponentImage = sitk.RelabelComponent(componentImage, sortByObjectSize=True)
-    largest = sortedComponentImage == 1
-
-    camera.DID = np.sum(sitk.GetArrayFromImage(largest))
-
-
 def optimizeCameras(
     cameras: list[Camera],
     cameraDir: str,
@@ -244,7 +184,6 @@ def optimizeCameras(
     for i in range(len(cameras)):
         camera = cameras[i]
         vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
-        # _calculateDataIntensityDensity(camera, vrgFName)
         cliNode = slicer.cli.run(
             cliModule,
             None,
