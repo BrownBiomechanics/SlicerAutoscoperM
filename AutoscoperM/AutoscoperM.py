@@ -198,6 +198,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Pre-processing Library Buttons
         self.ui.tiffGenButton.connect("clicked(bool)", self.onGeneratePartialVolumes)
         self.ui.vrgGenButton.connect("clicked(bool)", self.onGenerateVRG)
+        self.ui.manualVRGGenButton.connect("clicked(bool)", self.onManualVRGGen)
         self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
         self.ui.segmentationButton.connect("clicked(bool)", self.onSegmentation)
 
@@ -207,6 +208,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.mainOutputSelector.setCurrentPath(
             os.path.join(slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory(), "AutoscoperM-Pre-Processing")
         )
+
+        # Dynamic camera frustum functions
+        self.ui.mVRG_markupSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onMarkupNodeChanged)
+        self.ui.mVRG_ClippingRangeSlider.connect("valuesChanged(double,double)", self.updateClippingRange)
+        self.ui.mVRG_viewAngleSpin.connect("valueChanged(int)", self.updateViewAngle)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -630,6 +636,95 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             volumeNode.SetAndObserveTransformNodeID(transformNode.GetID())
             self.logic.showVolumeIn3D(volumeNode)
 
+    def onManualVRGGen(self):
+        markupsNode = self.ui.mVRG_markupSelector.currentNode()
+        volumeNode = self.ui.volumeSelector.currentNode()
+        segmentationNode = self.ui.mVRG_segmentationSelector.currentNode()
+        mainOutputDir = self.ui.mainOutputSelector.currentPath
+        viewAngle = self.ui.mVRG_viewAngleSpin.value
+        clippingRange = (self.ui.mVRG_ClippingRangeSlider.minimumValue, self.ui.mVRG_ClippingRangeSlider.maximumValue)
+        width = self.ui.vrgRes_width.value
+        height = self.ui.vrgRes_height.value
+        vrgDir = self.ui.vrgSubDir.text
+        cameraDir = self.ui.cameraSubDir.text
+        if not self.logic.validateInputs(
+            markupsNode=markupsNode,
+            volumeNode=volumeNode,
+            segmentationNode=segmentationNode,
+            mainOutputDir=mainOutputDir,
+            viewAngle=viewAngle,
+            clippingRange=clippingRange,
+            width=width,
+            height=height,
+            vrgDir=vrgDir,
+            cameraDir=cameraDir,
+        ):
+            logging.error("Failed to generate VRG: invalid inputs")
+            return
+        if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
+            logging.error("Failed to generate VRG: invalid output directory")
+            return
+        self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, vrgDir), os.path.join(mainOutputDir, cameraDir))
+
+        if self.logic.vrgManualCameras is None:
+            self.onMarkupNodeChanged(markupsNode)  # create the cameras
+
+        volumeImageData, _ = self.logic.extractSubVolumeForVRG(
+            volumeNode, segmentationNode, cameraDebugMode=self.ui.camDebugCheckbox.isChecked()
+        )
+
+        self.logic.generateVRGForCameras(
+            self.logic.vrgManualCameras,
+            volumeImageData,
+            os.path.join(mainOutputDir, vrgDir),
+            width,
+            height,
+            progressCallback=self.updateProgressBar,
+        )
+
+        self.updateProgressBar(100)
+
+        for cam in self.logic.vrgManualCameras:
+            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.yaml"))
+
+    def onMarkupNodeChanged(self, node):
+        if node is None:
+            if self.logic.vrgManualCameras is not None:
+                # clean up
+                for cam in self.logic.vrgManualCameras:
+                    slicer.mrmlScene.RemoveNode(cam.FrustumModel)
+                self.logic.vrgManualCameras = None
+            return
+        if self.logic.vrgManualCameras is not None:
+            # clean up
+            for cam in self.logic.vrgManualCameras:
+                slicer.mrmlScene.RemoveNode(cam.FrustumModel)
+            self.logic.vrgManualCameras = None
+        # get the volume and segmentation nodes
+        segmentationNode = self.ui.mVRG_segmentationSelector.currentNode()
+        if not self.logic.validateInputs(segmentationNode=segmentationNode):
+            return
+        bounds = [0] * 6
+        segmentationNode.GetBounds(bounds)
+        self.logic.vrgManualCameras = RadiographGeneration.generateCamerasFromMarkups(
+            node,
+            bounds,
+            (self.ui.mVRG_ClippingRangeSlider.minimumValue, self.ui.mVRG_ClippingRangeSlider.maximumValue),
+            self.ui.mVRG_viewAngleSpin.value,
+            [self.ui.vrgRes_width.value, self.ui.vrgRes_height.value],
+            True,
+        )
+
+    def updateClippingRange(self, min, max):
+        for cam in self.logic.vrgManualCameras:
+            cam.vtkCamera.SetClippingRange(min, max)
+            RadiographGeneration._updateFrustumModel(cam)
+
+    def updateViewAngle(self, value):
+        for cam in self.logic.vrgManualCameras:
+            cam.vtkCamera.SetViewAngle(value)
+            RadiographGeneration._updateFrustumModel(cam)
+
 
 #
 # AutoscoperMLogic
@@ -655,6 +750,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         self.AutoscoperProcess = qt.QProcess()
         self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
         self.AutoscoperSocket = None
+        self.vrgManualCameras = None
 
     def setDefaultParameters(self, parameterNode):
         """

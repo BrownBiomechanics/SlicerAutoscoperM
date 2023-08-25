@@ -32,6 +32,23 @@ class Camera:
 
 
 def _createFrustumModel(cam: Camera) -> None:
+    model = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
+    model.CreateDefaultDisplayNodes()
+    model.GetDisplayNode().SetColor(1, 0, 0)  # Red
+    model.GetDisplayNode().SetOpacity(0.3)
+    model.GetDisplayNode().SetVisibility(True)
+
+    model.SetName(f"cam{cam.id}-frustum")
+
+    cam.FrustumModel = model
+
+    _updateFrustumModel(cam)
+
+
+def _updateFrustumModel(cam: Camera) -> None:
+    if cam.FrustumModel is None:
+        _createFrustumModel(cam)
+        return
     # The equations of the six planes of the frustum in the order: left, right, bottom, top, far, near
     # Given as A, B, C, D where Ax + By + Cz + D = 0 for each plane
     planesArray = [0] * 24
@@ -47,18 +64,7 @@ def _createFrustumModel(cam: Camera) -> None:
     pd = vtk.vtkPolyData()
     hull.GenerateHull(pd, [-1000, 1000, -1000, 1000, -1000, 1000])
 
-    # Display the frustum
-    model = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
-    model.SetAndObservePolyData(pd)
-    model.CreateDefaultDisplayNodes()
-    model.GetDisplayNode().SetColor(1, 0, 0)  # Red
-    model.GetDisplayNode().SetOpacity(0.3)
-    # Set display to off
-    model.GetDisplayNode().SetVisibility(False)
-
-    model.SetName(f"cam{cam.id}-frustum")
-
-    cam.FrustumModel = model
+    cam.FrustumModel.SetAndObservePolyData(pd)
 
 
 def generateNCameras(
@@ -121,10 +127,8 @@ def generateNCameras(
         camera.vtkCamera.SetPosition(points.GetPoint(i))
         camera.vtkCamera.SetFocalPoint(center)
         camera.vtkCamera.SetViewAngle(30)
-        # Set the far clipping plane to be the distance from the camera to the far side of the volume
         camera.vtkCamera.SetClippingRange(0.1, r + largestDimension)
-        # camera.vtkCamera.SetClippingRange(0.1, 1000)
-        camera.vtkCamera.SetViewUp(0, 1, 0)  # Set the view up to be the y axis
+        camera.vtkCamera.SetViewUp(0, 1, 0)
         camera.id = i
         camera.imageSize = imageSize
         cameras.append(camera)
@@ -146,6 +150,53 @@ def generateNCameras(
 
             _createFrustumModel(cam)
 
+    return cameras
+
+
+def generateCamerasFromMarkups(
+    fiduaicalNode: slicer.vtkMRMLMarkupsFiducialNode,
+    volumeBounds: list[int],
+    clippingRange: tuple[int],
+    viewAngle: int,
+    imageSize: tuple[int] = (512, 512),
+    cameraDebug: bool = False,
+) -> list[Camera]:
+    """
+    Generate cameras from a markups fiducial node
+
+    :param fiduaicalNode: Markups fiducial node
+    :type fiduaicalNode: slicer.vtkMRMLMarkupsFiducialNode
+    :param volumeBounds: Bounds of the volume
+    :type volumeBounds: list[int]
+    :param clippingRange: Clipping range
+    :type clippingRange: tuple[int]
+    :param viewAngle: View angle
+    :type viewAngle: int
+    :param imageSize: Image size. Defaults to [512,512].
+    :type imageSize: list[int]
+    :param cameraDebug: Whether or not to show the cameras in the scene. Defaults to False.
+    :type cameraDebug: bool
+    :return: List of cameras
+    """
+    center = [
+        (volumeBounds[0] + volumeBounds[1]) / 2,
+        (volumeBounds[2] + volumeBounds[3]) / 2,
+        (volumeBounds[4] + volumeBounds[5]) / 2,
+    ]
+    n = fiduaicalNode.GetNumberOfControlPoints()
+    cameras = []
+    for i in range(n):
+        camera = Camera()
+        camera.vtkCamera.SetPosition(fiduaicalNode.GetNthControlPointPosition(i))
+        camera.vtkCamera.SetFocalPoint(center)
+        camera.vtkCamera.SetViewAngle(viewAngle)
+        camera.vtkCamera.SetClippingRange(clippingRange[0], clippingRange[1])
+        camera.vtkCamera.SetViewUp(0, 1, 0)
+        camera.id = fiduaicalNode.GetNthControlPointLabel(i)
+        camera.imageSize = imageSize
+        if cameraDebug:
+            _createFrustumModel(camera)
+        cameras.append(camera)
     return cameras
 
 

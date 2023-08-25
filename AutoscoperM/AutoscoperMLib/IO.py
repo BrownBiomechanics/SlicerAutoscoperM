@@ -74,6 +74,15 @@ def generateCameraCalibrationFile(camera: Camera, filename: str):
             + str(camera.vtkCamera.GetPosition()[2])
             + "]\n"
         )
+        f.write(
+            "view-up: ["
+            + str(camera.vtkCamera.GetViewUp()[0])
+            + ", "
+            + str(camera.vtkCamera.GetViewUp()[1])
+            + ", "
+            + str(camera.vtkCamera.GetViewUp()[2])
+            + "]\n"
+        )
         f.write("view-angle: " + str(camera.vtkCamera.GetViewAngle()) + "\n")
         f.write("image-width: " + str(camera.imageSize[0]) + "\n")
         f.write("image-height: " + str(camera.imageSize[1]) + "\n")
