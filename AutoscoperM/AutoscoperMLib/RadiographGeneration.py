@@ -227,9 +227,12 @@ def generateVRG(
 
     # create the render window
     renderWindow = vtk.vtkRenderWindow()
-    renderWindow.SetOffScreenRendering(1)
+    # renderWindow.SetOffScreenRendering(1)
     renderWindow.SetSize(width, height)
     renderWindow.AddRenderer(renderer)
+
+    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+    renderWindowInteractor.SetRenderWindow(renderWindow)
 
     # create the volume mapper
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
@@ -262,6 +265,8 @@ def generateVRG(
 
     # render the image
     renderWindow.Render()
+
+    renderWindowInteractor.Start()
 
     # save the image
     writer = vtk.vtkTIFFWriter()

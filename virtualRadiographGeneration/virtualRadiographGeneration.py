@@ -30,7 +30,6 @@ def generateVRG(
     :param height: Height of the output image.
     :type height: int
     """
-
     # create the renderer
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(1, 1, 1)
