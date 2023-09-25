@@ -1148,7 +1148,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
                 return x
 
         for idx, cam in enumerate(bestCameras):
-            IO.generateCameraCalibrationFile(cam, os.path.join(calibDir, f"cam{cam.id}.yaml"))
+            IO.generateCameraCalibrationFile(cam, os.path.join(calibDir, f"cam{cam.id}.json"))
             cameraDir = os.path.join(finalDir, f"cam{cam.id}")
             self.createPathsIfNotExists(cameraDir)
             # Copy all tif files from the tmp to the final directory
