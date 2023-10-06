@@ -22,6 +22,13 @@ def generateVRG(
     :param height: Height of the output image
     """
 
+    # find the min and max scalar values
+    hist = vtk.vtkImageHistogramStatistics()
+    hist.SetInputData(volumeImageData)
+    hist.Update()
+    minVal = hist.GetMinimum()
+    maxVal = hist.GetMaximum()
+
     # create the renderer
     renderer = vtk.vtkRenderer()
     renderer.SetBackground(1, 1, 1)  # Set background to white
@@ -42,17 +49,17 @@ def generateVRG(
 
     # Set the transfer functions for opacity, gradient and color
     opacityTransferFunction = vtk.vtkPiecewiseFunction()  # From the Slicer CT XRay preset
-    opacityTransferFunction.AddPoint(0, 0.0)
+    opacityTransferFunction.AddPoint(minVal, 0.0)
     opacityTransferFunction.AddPoint(1500, 0.05)
-    opacityTransferFunction.AddPoint(3071, 0.05)
+    opacityTransferFunction.AddPoint(maxVal, 0.05)
 
     gradTransferFunction = vtk.vtkPiecewiseFunction()  # From the Slicer CT XRay preset
     gradTransferFunction.AddPoint(0, 1)
     gradTransferFunction.AddPoint(255, 1)
 
     colorTransferFunction = vtk.vtkColorTransferFunction()
-    colorTransferFunction.AddRGBPoint(0, 1, 1, 1)  # Low to be white
-    colorTransferFunction.AddRGBPoint(3071, 0, 0, 0)  # High to be black
+    colorTransferFunction.AddRGBPoint(maxVal, 1, 1, 1)
+    colorTransferFunction.AddRGBPoint(minVal, 0, 0, 0)
 
     volumeProperty = vtk.vtkVolumeProperty()
     volumeProperty.SetInterpolationTypeToLinear()

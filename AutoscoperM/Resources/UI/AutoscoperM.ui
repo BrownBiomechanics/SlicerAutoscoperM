@@ -266,7 +266,7 @@
              <item row="7" column="0">
               <widget class="QCheckBox" name="removeVrgTmp">
                <property name="enabled">
-                <bool>true</bool>
+                <bool>false</bool>
                </property>
                <property name="text">
                 <string>Delete Temporary VRG Files</string>
@@ -429,14 +429,63 @@
           <bool>false</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_6">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_22">
+            <property name="text">
+             <string>Camera Positions</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QDoubleSpinBox" name="mVRG_clippingRangeMinBox">
+            <property name="minimum">
+             <double>0.100000000000000</double>
+            </property>
+            <property name="maximum">
+             <double>2000.000000000000000</double>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="0">
+           <widget class="QLabel" name="label_24">
+            <property name="text">
+             <string>Clipping Range</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
            <widget class="QLabel" name="label_23">
             <property name="text">
              <string>View Angle</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="2">
+          <item row="0" column="1" colspan="3">
+           <widget class="qMRMLNodeComboBox" name="mVRG_markupSelector">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="nodeTypes">
+             <stringlist notr="true">
+              <string>vtkMRMLMarkupsFiducialNode</string>
+             </stringlist>
+            </property>
+            <property name="hideChildNodeTypes">
+             <stringlist notr="true"/>
+            </property>
+            <property name="interactionNodeSingletonTag">
+             <string notr="true"/>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="4">
+           <widget class="QPushButton" name="manualVRGGenButton">
+            <property name="text">
+             <string>Generate VRGs from Markups</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
            <widget class="ctkDoubleRangeSlider" name="mVRG_ClippingRangeSlider">
             <property name="minimum">
              <double>0.100000000000000</double>
@@ -458,51 +507,7 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_21">
-            <property name="text">
-             <string>Segmentation Node</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_22">
-            <property name="text">
-             <string>Camera Positions</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QDoubleSpinBox" name="mVRG_clippingRangeMinBox">
-            <property name="minimum">
-             <double>0.100000000000000</double>
-            </property>
-            <property name="maximum">
-             <double>2000.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_24">
-            <property name="text">
-             <string>Clipping Range</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="3">
-           <widget class="QDoubleSpinBox" name="mVRG_clippingRangeMaxBox">
-            <property name="minimum">
-             <double>0.100000000000000</double>
-            </property>
-            <property name="maximum">
-             <double>2000.000000000000000</double>
-            </property>
-            <property name="value">
-             <double>300.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1" colspan="3">
+          <item row="1" column="1" colspan="3">
            <widget class="QSpinBox" name="mVRG_viewAngleSpin">
             <property name="maximum">
              <number>360</number>
@@ -512,46 +517,16 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="1" colspan="3">
-           <widget class="qMRMLNodeComboBox" name="mVRG_segmentationSelector">
-            <property name="enabled">
-             <bool>true</bool>
+          <item row="2" column="3">
+           <widget class="QDoubleSpinBox" name="mVRG_clippingRangeMaxBox">
+            <property name="minimum">
+             <double>0.100000000000000</double>
             </property>
-            <property name="nodeTypes">
-             <stringlist notr="true">
-              <string>vtkMRMLSegmentationNode</string>
-             </stringlist>
+            <property name="maximum">
+             <double>2000.000000000000000</double>
             </property>
-            <property name="hideChildNodeTypes">
-             <stringlist notr="true"/>
-            </property>
-            <property name="interactionNodeSingletonTag">
-             <string notr="true"/>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1" colspan="3">
-           <widget class="qMRMLNodeComboBox" name="mVRG_markupSelector">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="nodeTypes">
-             <stringlist notr="true">
-              <string>vtkMRMLMarkupsFiducialNode</string>
-             </stringlist>
-            </property>
-            <property name="hideChildNodeTypes">
-             <stringlist notr="true"/>
-            </property>
-            <property name="interactionNodeSingletonTag">
-             <string notr="true"/>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0" colspan="4">
-           <widget class="QPushButton" name="manualVRGGenButton">
-            <property name="text">
-             <string>Generate VRGs from Markups</string>
+            <property name="value">
+             <double>300.000000000000000</double>
             </property>
            </widget>
           </item>
@@ -573,7 +548,7 @@
           <bool>true</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
-          <item row="3" column="2">
+          <item row="2" column="2">
            <widget class="QSpinBox" name="camOffSetSpin">
             <property name="minimum">
              <number>0</number>
@@ -583,6 +558,20 @@
             </property>
             <property name="value">
              <number>400</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_17">
+            <property name="text">
+             <string>Camera Offset:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string># of Optimized Cameras:</string>
             </property>
            </widget>
           </item>
@@ -596,13 +585,6 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_17">
-            <property name="text">
-             <string>Camera Offset:</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_7">
             <property name="text">
@@ -610,25 +592,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="1" colspan="2">
-           <widget class="qMRMLNodeComboBox" name="vrg_SegNodeComboBox">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="nodeTypes">
-             <stringlist notr="true">
-              <string>vtkMRMLSegmentationNode</string>
-             </stringlist>
-            </property>
-            <property name="hideChildNodeTypes">
-             <stringlist notr="true"/>
-            </property>
-            <property name="interactionNodeSingletonTag">
-             <string notr="true"/>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
+          <item row="2" column="1">
            <widget class="QSlider" name="camOffSetSlider">
             <property name="autoFillBackground">
              <bool>false</bool>
@@ -647,24 +611,10 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0" colspan="3">
+          <item row="4" column="0" colspan="3">
            <widget class="QPushButton" name="vrgGenButton">
             <property name="text">
              <string>Generate VRGs</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_18">
-            <property name="text">
-             <string>Segmentation Node:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string># of Optimized Cameras:</string>
             </property>
            </widget>
           </item>
@@ -1023,39 +973,7 @@
   <connection>
    <sender>AutoscoperM</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>vrg_SegNodeComboBox</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>508</x>
-     <y>619</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>587</x>
-     <y>941</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>AutoscoperM</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>mVRG_markupSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>508</x>
-     <y>429</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>507</x>
-     <y>409</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>AutoscoperM</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>mVRG_segmentationSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">

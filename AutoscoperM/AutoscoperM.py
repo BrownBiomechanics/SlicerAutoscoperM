@@ -431,7 +431,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set up and validate inputs
         volumeNode = self.ui.volumeSelector.currentNode()
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        segmentationNode = self.ui.vrg_SegNodeComboBox.currentNode()
         width = self.ui.vrgRes_width.value
         height = self.ui.vrgRes_height.value
         nPossibleCameras = self.ui.posCamSpin.value
@@ -441,7 +440,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         vrgSubDir = self.ui.vrgSubDir.text
         if not self.logic.validateInputs(
             volumeNode=volumeNode,
-            segmentationNode=segmentationNode,
             mainOutputDir=mainOutputDir,
             width=width,
             height=height,
@@ -460,10 +458,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logging.error("Failed to generate VRG: more optimized cameras than possible cameras")
             return
 
-        # Extract the subvolume for the radiographs
-        volumeImageData, bounds = self.logic.extractSubVolumeForVRG(
-            volumeNode, segmentationNode, cameraDebugMode=self.ui.camDebugCheckbox.isChecked()
-        )
+        bounds = [0] * 6
+        volumeNode.GetBounds(bounds)
 
         # Generate all possible camera positions
         camOffset = self.ui.camOffSetSpin.value
@@ -476,7 +472,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Generate initial VRG for each camera
         self.logic.generateVRGForCameras(
             cameras,
-            volumeImageData,
+            volumeNode,
             os.path.join(mainOutputDir, tmpDir),
             width,
             height,
@@ -639,7 +635,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onManualVRGGen(self):
         markupsNode = self.ui.mVRG_markupSelector.currentNode()
         volumeNode = self.ui.volumeSelector.currentNode()
-        segmentationNode = self.ui.mVRG_segmentationSelector.currentNode()
         mainOutputDir = self.ui.mainOutputSelector.currentPath
         viewAngle = self.ui.mVRG_viewAngleSpin.value
         clippingRange = (self.ui.mVRG_ClippingRangeSlider.minimumValue, self.ui.mVRG_ClippingRangeSlider.maximumValue)
@@ -650,7 +645,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self.logic.validateInputs(
             markupsNode=markupsNode,
             volumeNode=volumeNode,
-            segmentationNode=segmentationNode,
             mainOutputDir=mainOutputDir,
             viewAngle=viewAngle,
             clippingRange=clippingRange,
@@ -669,13 +663,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.logic.vrgManualCameras is None:
             self.onMarkupNodeChanged(markupsNode)  # create the cameras
 
-        volumeImageData, _ = self.logic.extractSubVolumeForVRG(
-            volumeNode, segmentationNode, cameraDebugMode=self.ui.camDebugCheckbox.isChecked()
-        )
-
         self.logic.generateVRGForCameras(
             self.logic.vrgManualCameras,
-            volumeImageData,
+            volumeNode,
             os.path.join(mainOutputDir, vrgDir),
             width,
             height,
@@ -685,7 +675,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.updateProgressBar(100)
 
         for cam in self.logic.vrgManualCameras:
-            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.yaml"))
+            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.json"))
 
     def onMarkupNodeChanged(self, node):
         if node is None:
@@ -700,12 +690,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for cam in self.logic.vrgManualCameras:
                 slicer.mrmlScene.RemoveNode(cam.FrustumModel)
             self.logic.vrgManualCameras = None
-        # get the volume and segmentation nodes
-        segmentationNode = self.ui.mVRG_segmentationSelector.currentNode()
-        if not self.logic.validateInputs(segmentationNode=segmentationNode):
-            return
+        # get the volume nodes
+        volumeNode = self.ui.volumeSelector.currentNode()
+        self.logic.validateInputs(volumeNode=volumeNode)
         bounds = [0] * 6
-        segmentationNode.GetBounds(bounds)
+        volumeNode.GetBounds(bounds)
         self.logic.vrgManualCameras = RadiographGeneration.generateCamerasFromMarkups(
             node,
             bounds,
@@ -1039,7 +1028,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     def generateVRGForCameras(
         self,
         cameras: list[RadiographGeneration.Camera],
-        volumeImageData: vtk.vtkImageData,
+        volumeNode: slicer.vtkMRMLVolumeNode,
         outputDir: str,
         width: int,
         height: int,
@@ -1050,8 +1039,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         :param cameras: list of cameras
         :type cameras: list[RadiographGeneration.Camera]
-        :param volumeImageData: volume image data
-        :type volumeImageData: vtk.vtkImageData
+        :param volumeNode: volume node
+        :type volumeNode: slicer.vtkMRMLVolumeNode
         :param outputDir: output directory
         :type outputDir: str
         :param width: width of the radiographs
@@ -1072,9 +1061,20 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             def progressCallback(x):
                 return x
 
+        # Apply a thresh of 0 to the volume to remove air from the volume
+        thresholdScalarVolume = slicer.modules.thresholdscalarvolume
+        parameters = {
+            "InputVolume": volumeNode.GetID(),
+            "OutputVolume": volumeNode.GetID(),
+            "ThresholdValue": 0,
+            "ThresholdType": "Below",
+            "Lower": 0,
+        }
+        slicer.cli.runSync(thresholdScalarVolume, None, parameters)
+
         # write a temporary volume to disk
-        volumeFName = "AutoscoperM_VRG_GEN_TEMP.mhd"
-        IO.writeTemporyFile(volumeFName, volumeImageData)
+        volumeFileName = "AutoscoperM_VRG_GEN_TEMP.mhd"
+        IO.writeTemporyFile(volumeFileName, self.convertNodeToData(volumeNode))
 
         # Execute CLI for each camera
         cliModule = slicer.modules.virtualradiographgeneration
@@ -1157,3 +1157,34 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
             progress = ((idx + 1) / len(bestCameras)) * 10 + 90
             progressCallback(progress)
+
+    def convertNodeToData(self, volumeNode: slicer.vtkMRMLVolumeNode) -> vtk.vtkImageData:
+        """
+        Converts a volume node to a vtkImageData object
+        """
+        imageData = vtk.vtkImageData()
+        imageData.DeepCopy(volumeNode.GetImageData())
+        imageData.SetSpacing(volumeNode.GetSpacing())
+        origin = list(volumeNode.GetOrigin())
+        imageData.SetOrigin(origin)
+
+        mat = vtk.vtkMatrix4x4()
+        volumeNode.GetIJKToRASMatrix(mat)
+        if mat.GetElement(0, 0) < 0 and mat.GetElement(1, 1) < 0:
+            origin[0:2] = [x * -1 for x in origin[0:2]]
+            imageData.SetOrigin(origin)
+
+            # Ensure we are in the correct orientation (RAS vs LPS)
+            imageReslice = vtk.vtkImageReslice()
+            imageReslice.SetInputData(imageData)
+
+            axes = vtk.vtkMatrix4x4()
+            axes.Identity()
+            axes.SetElement(0, 0, -1)
+            axes.SetElement(1, 1, -1)
+
+            imageReslice.SetResliceAxes(axes)
+            imageReslice.Update()
+            imageData = imageReslice.GetOutput()
+
+        return imageData
