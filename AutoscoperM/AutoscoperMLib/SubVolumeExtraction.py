@@ -246,9 +246,8 @@ def _getItemFromFolder(folderName: str) -> slicer.vtkMRMLNode:
     shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
     folderId = shNode.GetItemByName(folderName)
     nodeId = shNode.GetItemByPositionUnderParent(folderId, 0)
-    nodeName = shNode.GetItemName(nodeId)
 
     folderPlugin.setDisplayVisibility(folderId, 1)
-    slicer.mrmlScene.RemoveNode(slicer.util.getNode(folderName))  # remove the folder
+    slicer.mrmlScene.RemoveNode(shNode.GetDisplayNodeForItem(folderId))  # remove the folder
 
-    return slicer.util.getNode(nodeName)  # return the node in the folder
+    return shNode.GetItemDataNode(nodeId)  # return the node in the folder

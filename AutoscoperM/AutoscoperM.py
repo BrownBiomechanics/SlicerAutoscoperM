@@ -2,6 +2,7 @@ import contextlib
 import glob
 import logging
 import os
+import re
 import shutil
 import time
 import zipfile
@@ -221,6 +222,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.segmentationButton.connect("clicked(bool)", self.onSegmentation)
 
         self.ui.loadPVButton.connect("clicked(bool)", self.onLoadPV)
+        self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.logic.check4D)
 
         # Default output directory
         self.ui.mainOutputSelector.setCurrentPath(
@@ -278,6 +280,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # so that when the scene is saved and reloaded, these settings are restored.
 
         self.setParameterNode(self.logic.getParameterNode())
+        if self.ui.volumeSelector.currentNode() is not None:
+            self.logic.check4D(self.ui.volumeSelector.currentNode())
+        if self.ui.mVRG_markupSelector.currentNode() is not None:
+            self.onMarkupNodeChanged(self.ui.mVRG_markupSelector.currentNode())
 
         # Select default input nodes if nothing is selected yet to save a few clicks for the user
         # NA
@@ -469,6 +475,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         nPossibleCameras = self.ui.posCamSpin.value
         nOptimizedCameras = self.ui.optCamSpin.value
         tmpDir = self.ui.vrgTempDir.text
+        tfmPath = self.ui.tfmSubDir.text
         cameraSubDir = self.ui.cameraSubDir.text
         vrgSubDir = self.ui.vrgSubDir.text
         if not self.logic.validateInputs(
@@ -479,6 +486,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             nPossibleCameras=nPossibleCameras,
             nOptimizedCameras=nOptimizedCameras,
             tmpDir=tmpDir,
+            tfmPath=tfmPath,
             cameraSubDir=cameraSubDir,
             vrgSubDir=vrgSubDir,
         ):
@@ -491,8 +499,46 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logging.error("Failed to generate VRG: more optimized cameras than possible cameras")
             return
 
+        # center the volume
+        self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, tfmPath))
+        if not self.logic.is_4d:
+            volumeNode.AddCenteringTransform()
+            tfmNode = slicer.util.getNode(f"{volumeNode.GetName()} centering transform")
+            volumeNode.HardenTransform()
+            volumeNode.SetAndObserveTransformNodeID(None)
+            tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+            tfmNode.Inverse()
+            slicer.util.saveNode(tfmNode, tfmPath)
+            slicer.mrmlScene.RemoveNode(tfmNode)
+        else:
+            # Just export the first frame
+            currentNode = self.logic.getItemInSequence(volumeNode, 0)
+            currentNode.AddCenteringTransform()
+            tfmNode = currentNode.GetParentTransformNode()
+            # tfmNode = slicer.util.getNode(f"{currentNode.GetName()} centering transform")
+            currentNode.HardenTransform()
+            currentNode.SetAndObserveTransformNodeID(None)
+            tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+            tfmNode.Inverse()
+            slicer.util.saveNode(tfmNode, tfmPath)
+            slicer.mrmlScene.RemoveNode(tfmNode)
+
+            # Harden and remove the transform from the sequence
+            for i in range(1, volumeNode.GetNumberOfDataNodes()):
+                currentNode = self.logic.getItemInSequence(volumeNode, i)
+                currentNode.AddCenteringTransform()
+                tfmNode = currentNode.GetParentTransformNode()
+                currentNode.HardenTransform()
+                currentNode.SetAndObserveTransformNodeID(None)
+                slicer.mrmlScene.RemoveNode(tfmNode)
+
+        numFrames = 1
+        currentNode = volumeNode
+        if self.logic.is_4d:
+            numFrames = volumeNode.GetNumberOfDataNodes()
+            currentNode = self.logic.getItemInSequence(volumeNode, 0)
         bounds = [0] * 6
-        volumeNode.GetBounds(bounds)
+        currentNode.GetBounds(bounds)
 
         # Generate all possible camera positions
         camOffset = self.ui.camOffSetSpin.value
@@ -503,14 +549,18 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.updateProgressBar(10)
 
         # Generate initial VRG for each camera
-        self.logic.generateVRGForCameras(
-            cameras,
-            volumeNode,
-            os.path.join(mainOutputDir, tmpDir),
-            width,
-            height,
-            progressCallback=self.updateProgressBar,
-        )
+        for i in range(numFrames):
+            filename = self.logic.cleanFilename(currentNode.GetName(), i)
+            self.logic.generateVRGForCameras(
+                cameras,
+                currentNode,
+                os.path.join(mainOutputDir, tmpDir),
+                [width, height],
+                filename=filename,
+                progressCallback=self.updateProgressBar,
+            )
+
+            currentNode = self.logic.getNextItemInSequence(volumeNode) if self.logic.is_4d else currentNode
 
         # Optimize the camera positions
         bestCameras = RadiographGeneration.optimizeCameras(
@@ -609,6 +659,28 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         if self.ui.segGen_autoRadioButton.isChecked():
+            currentVolumeNode = volumeNode
+            numFrames = 1
+            if self.logic.is_4d:
+                numFrames = volumeNode.GetNumberOfDataNodes()
+                currentVolumeNode = self.logic.getItemInSequence(volumeNode, 0)
+                segmentationSequenceNode = self.logic.createSequenceNodeInBrowser(
+                    nodename=f"{volumeNode.GetName()}_Segmentation", sequenceNode=volumeNode
+                )
+            for i in range(numFrames):
+                self.logic.cleanFilename(currentVolumeNode.GetName(), i)
+                segmentationNode = SubVolumeExtraction.automaticSegmentation(
+                    currentVolumeNode,
+                    self.ui.segGen_ThresholdSpinBox.value,
+                    self.ui.segGen_marginSizeSpin.value,
+                )
+                progress = (i + 1) / numFrames * 100
+                self.ui.progressBar.setValue(progress)
+                if self.logic.is_4d:
+                    segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
+                    slicer.mrmlScene.RemoveNode(segmentationNode)
+                    currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
+
             segmentationNode = SubVolumeExtraction.automaticSegmentation(
                 volumeNode,
                 self.ui.segGen_ThresholdSpinBox.value,
@@ -705,14 +777,35 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.logic.vrgManualCameras is None:
             self.onMarkupNodeChanged(markupsNode)  # create the cameras
 
-        self.logic.generateVRGForCameras(
-            self.logic.vrgManualCameras,
-            volumeNode,
-            os.path.join(mainOutputDir, vrgDir),
-            width,
-            height,
-            progressCallback=self.updateProgressBar,
-        )
+        # Check if the volume is centered at the origin
+        bounds = [0.0] * 6
+        if self.logic.is_4d:
+            # get the bounds of the first frame
+            volumeNode.GetNthDataNode(0).GetRASBounds(bounds)
+        else:
+            volumeNode.GetRASBounds(bounds)
+
+        isCentered = volumeNode.GetNthDataNode(0).IsCentered() if self.logic.is_4d else volumeNode.IsCentered()
+        if not isCentered:
+            logging.warning("Volume is not centered at the origin. This may cause issues with Autoscoper.")
+
+        numFrames = 1
+        currentNode = volumeNode
+        if self.logic.is_4d:
+            numFrames = volumeNode.GetNumberOfDataNodes()
+            currentNode = self.logic.getItemInSequence(volumeNode, 0)
+
+        for i in range(numFrames):
+            filename = self.logic.cleanFilename(currentNode.GetName(), i)
+            self.logic.generateVRGForCameras(
+                self.logic.vrgManualCameras,
+                currentNode,
+                os.path.join(mainOutputDir, vrgDir),
+                [width, height],
+                filename=filename,
+                progressCallback=self.updateProgressBar,
+            )
+            currentNode = self.logic.getNextItemInSequence(volumeNode) if self.logic.is_4d else currentNode
 
         self.updateProgressBar(100)
 
@@ -735,6 +828,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # get the volume nodes
         volumeNode = self.ui.volumeSelector.currentNode()
         self.logic.validateInputs(volumeNode=volumeNode)
+        volumeNode = self.logic.getItemInSequence(volumeNode, 0) if self.logic.is_4d else volumeNode
         bounds = [0] * 6
         volumeNode.GetBounds(bounds)
         self.logic.vrgManualCameras = RadiographGeneration.generateCamerasFromMarkups(
@@ -782,6 +876,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         self.AutoscoperProcess.setProcessChannelMode(qt.QProcess.ForwardedChannels)
         self.AutoscoperSocket = None
         self.vrgManualCameras = None
+        self.is_4d = False
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -1064,9 +1159,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         cameras: list[RadiographGeneration.Camera],
         volumeNode: slicer.vtkMRMLVolumeNode,
         outputDir: str,
-        width: int,
-        height: int,
-        progressCallback: Optional[callable] = None,
+        size: list[int],
+        filename: str,
+        progressCallback=None,
     ) -> None:
         """
         Generates VRG files for each camera in the cameras list
@@ -1074,8 +1169,11 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :param cameras: list of cameras
         :param volumeNode: volume node
         :param outputDir: output directory
-        :param width: width of the radiographs
-        :param height: height of the radiographs
+        :type outputDir: str
+        :param size: size of the VRG
+        :type size: list[int]
+        :param filename: filename of the VRG
+        :type filename: str
         :param progressCallback: progress callback, defaults to None
         """
         self.createPathsIfNotExists(outputDir)
@@ -1108,6 +1206,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         cliModule = slicer.modules.virtualradiographgeneration
         cliNodes = []
         for cam in cameras:
+            logging.info(f"Generating {filename}.tif for {cam.id}")
             cameraDir = os.path.join(outputDir, f"cam{cam.id}")
             self.createPathsIfNotExists(cameraDir)
             camera = cam.vtkCamera
@@ -1118,9 +1217,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
                 "cameraViewUp": [camera.GetViewUp()[0], camera.GetViewUp()[1], camera.GetViewUp()[2]],
                 "cameraViewAngle": camera.GetViewAngle(),
                 "clippingRange": [camera.GetClippingRange()[0], camera.GetClippingRange()[1]],
-                "outputWidth": width,
-                "outputHeight": height,
-                "outputFileName": os.path.join(cameraDir, "1.tif"),
+                "outputFileName": os.path.join(cameraDir, f"{filename}.tif"),
+                "outputWidth": size[0],
+                "outputHeight": size[1],
             }
             cliNode = slicer.cli.run(cliModule, None, parameters)  # run asynchronously
             cliNodes.append(cliNode)
@@ -1211,3 +1310,64 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             imageData = imageReslice.GetOutput()
 
         return imageData
+
+    def check4D(self, node: slicer.vtkMRMLNode) -> bool:
+        """
+        Checks if the volume is 4D
+        """
+        self.is_4d = type(node) == slicer.vtkMRMLSequenceNode
+
+    def getItemInSequence(self, sequenceNode: slicer.vtkMRMLSequenceNode, idx: int) -> slicer.vtkMRMLNode:
+        """
+        Returns the item at the specified index in the sequence node
+
+        :param sequenceNode: sequence node
+        :type sequenceNode: slicer.vtkMRMLSequenceNode
+        :param idx: index
+        :type idx: int
+        :return: item at the specified index
+        :rtype: slicer.vtkMRMLNode
+        """
+        if type(sequenceNode) != slicer.vtkMRMLSequenceNode:
+            logging.error("[AutoscoperM.logic.getItemInSequence] sequenceNode must be a sequence node")
+            return None
+
+        if idx >= sequenceNode.GetNumberOfDataNodes():
+            logging.error(f"[AutoscoperM.logic.getItemInSequence] index {idx} is out of range")
+            return None
+
+        browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
+        browserNode.SetSelectedItemNumber(idx)
+        return browserNode.GetProxyNode(sequenceNode)
+
+    def getNextItemInSequence(self, sequenceNode: slicer.vtkMRMLSequenceNode) -> slicer.vtkMRMLNode:
+        """
+        Returns the next item in the sequence
+
+        :param sequenceNode: sequence node
+        :type sequenceNode: slicer.vtkMRMLSequenceNode
+        :return: next item in the sequence
+        :rtype: slicer.vtkMRMLNode
+        """
+        if type(sequenceNode) != slicer.vtkMRMLSequenceNode:
+            logging.error("[AutoscoperM.logic.getNextItemInSequence] sequenceNode must be a sequence node")
+            return None
+
+        browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
+        browserNode.SelectNextItem()
+        return browserNode.GetProxyNode(sequenceNode)
+
+    def cleanFilename(self, volumeName: str, index: Optional[int] = None) -> str:
+        filename = (
+            re.sub(r"\s+", "_", f"{volumeName}_{index}") if index is not None else re.sub(r"\s+", "_", f"{volumeName}")
+        )  # Remove spaces
+        filename = re.sub(r"[^\w]", "", filename)  # Remove non alphanumeric characters
+        return re.sub(r"__+", "_", filename)  # Remove double or more underscores
+
+    def createSequenceNodeInBrowser(self, nodename, sequenceNode):
+        browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
+        newSeqenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", nodename)
+        browserNode.AddSynchronizedSequenceNode(newSeqenceNode)
+        browserNode.SetOverwriteProxyName(newSeqenceNode, True)
+        browserNode.SetSaveChanges(newSeqenceNode, True)
+        return newSeqenceNode
