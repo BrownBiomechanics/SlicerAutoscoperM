@@ -221,7 +221,6 @@ def optimizeCameras(
     :return: Optimized cameras
     :rtype: list[Camera]
     """
-    import glob
     import os
 
     if not progressCallback:
@@ -234,11 +233,11 @@ def optimizeCameras(
     cliNodes = []
     for i in range(len(cameras)):
         camera = cameras[i]
-        vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
+        vrgDirName = os.path.join(cameraDir, f"cam{camera.id}")
         cliNode = slicer.cli.run(
             cliModule,
             None,
-            {"whiteRadiographFileName": vrgFName},
+            {"whiteRadiographDirName": vrgDirName},
             wait_for_completion=False,
         )
         cliNodes.append(cliNode)

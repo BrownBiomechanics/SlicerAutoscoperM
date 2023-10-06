@@ -15,10 +15,10 @@
   <acknowledgements><![CDATA[The SlicerAutoscoperM developers gratefully acknowledge funding for this project provided by NIH NIAMS R01AR078924 (Multi-modal Tracking of In Vivo Skeletal Structures and Implants).]]></acknowledgements>
   <parameters>
     <string>
-      <name>whiteRadiographFileName</name>
-      <label>White Radiograph File Name</label>
+      <name>whiteRadiographDirName</name>
+      <label>White Radiograph Directory Name</label>
       <index>1</index>
-      <description><![CDATA[Path to the white radiograph used to calculate data intensity density]]></description>
+      <description><![CDATA[Path to the directory that stores the white radiographs for the current camera, used to calculate data intensity density]]></description>
       <channel>input</channel>
     </string>
     <float>
@@ -26,6 +26,13 @@
       <label>Data Intensity Density (DID)</label>
       <index>2</index>
       <description><![CDATA[Calculated data intensity density]]></description>
+      <channel>output</channel>
+    </float>
+    <float>
+      <name>outliers</name>
+      <label>DID Outliers</label>
+      <index>3</index>
+      <description><![CDATA[List of indices that fall outside of the interquartile range]]></description>
       <channel>output</channel>
     </float>
     <label>IO</label>

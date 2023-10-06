@@ -30,6 +30,7 @@ extend-ignore = [
     "ANN101",  # missing-type-self
     "G004",    # logging-f-string
     "PIE790",  # unnecessary-pass
+    "PLR0915", # too-many-statements
     "EXE001",  # Allow use of shebang at top of file. Needed for Scripted CLI
 ]
 target-version = "py39"
