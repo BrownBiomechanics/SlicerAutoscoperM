@@ -57,9 +57,16 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       )
   endif()
 
-  set(Autoscoper_OPENCL_USE_ICD_LOADER TRUE)
+  # set(Autoscoper_OPENCL_USE_ICD_LOADER TRUE)
+  # if(APPLE)
+  #   set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
+  # endif()
+
+  set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
   if(APPLE)
-    set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
+    set(Autoscoper_RENDERING_BACKEND "OpenCL")
+  else()
+    set(Autoscoper_RENDERING_BACKEND "CUDA")
   endif()
 
   if(UNIX AND NOT APPLE)
@@ -103,7 +110,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       -DAutoscoper_INSTALL_DEPENDENCIES:BOOL=${Autoscoper_INSTALL_DEPENDENCIES}
       -DAutoscoper_INSTALL_Qt_LIBRARIES:BOOL=OFF
       -DAutoscoper_INSTALL_SAMPLE_DATA:BOOL=OFF
-      -DAutoscoper_RENDERING_BACKEND:STRING=OpenCL
+      -DAutoscoper_RENDERING_BACKEND:STRING=${Autoscoper_RENDERING_BACKEND}
       -DQt5_DIR:PATH=${Qt5_DIR}
       # Dependencies
       # NA
