@@ -25,6 +25,22 @@ find_package(Git REQUIRED)
 mark_as_superbuild(GIT_EXECUTABLE)
 
 #-----------------------------------------------------------------------------
+# Options
+
+set(_reason "")
+if(DEFINED ENV{Autoscoper_RENDERING_BACKEND})
+  set(_reason " (initialized from env. variable)")
+  set(_default_backend $ENV{Autoscoper_RENDERING_BACKEND})
+elseif(NOT DEFINED Autoscoper_RENDERING_BACKEND)
+  set(_reason " (initialized from default value)")
+  set(_default_backend "OpenCL")
+endif()
+
+set(Autoscoper_RENDERING_BACKEND "${_default_backend}" CACHE STRING "Backend to use for DRR and radiograph rendering")
+set_property(CACHE Autoscoper_RENDERING_BACKEND PROPERTY STRINGS "CUDA" "OpenCL")
+message(STATUS "Setting Autoscoper_RENDERING_BACKEND to ${Autoscoper_RENDERING_BACKEND}${_reason}")
+
+#-----------------------------------------------------------------------------
 # SuperBuild setup
 option(${EXTENSION_NAME}_SUPERBUILD "Build ${EXTENSION_NAME} and the projects it depends on." ON)
 mark_as_advanced(${EXTENSION_NAME}_SUPERBUILD)
