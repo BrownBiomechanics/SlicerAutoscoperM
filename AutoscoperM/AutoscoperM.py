@@ -330,13 +330,25 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def loadConfig(self, configPath):
         if not configPath.endswith(".cfg"):
             logging.error(f"Failed to load config file: {configPath} is expected to have the .cfg extension")
-            return
+            return False
 
         if not os.path.exists(configPath):
             logging.error(f"Failed to load config file: {configPath} not found")
-            return
+            return False
+
+        # Ensure that autoscoper is running
+        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running and slicer.util.confirmYesNoDisplay(
+            "Autoscoper is not running. Do you want to start Autoscoper?"
+        ):
+            self.lookupAndStartAutoscoper()
+
+        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running:
+            logging.error("failed to load the Sample Data: Autoscoper is not running. ")
+            return False
 
         self.logic.AutoscoperSocket.loadTrial(configPath)
+
+        return True
 
     def onSampleDataButtonClicked(self, dataType):
 
@@ -349,16 +361,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
             return
 
-        # Ensure that autoscoper is running
-        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running and slicer.util.confirmYesNoDisplay(
-            "Autoscoper is not running. Do you want to start Autoscoper?"
-        ):
-            self.lookupAndStartAutoscoper()
-
-        if self.logic.AutoscoperProcess.state() != qt.QProcess.Running:
-            logging.error("failed to load the Sample Data: Autoscoper is not running. ")
-            return
-
         # Load the sample data
         configFile = os.path.join(sampleDataDir, sampleDataConfigFile(dataType))
 
@@ -366,7 +368,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logging.error(f"Failed to load config file: {configFile} not found")
             return
 
-        self.loadConfig(configFile)
+        if not self.loadConfig(configFile):
+            return
 
         # Load filter settings
         numCams = len(glob.glob(os.path.join(sampleDataDir, "Calibration", "*.txt")))
