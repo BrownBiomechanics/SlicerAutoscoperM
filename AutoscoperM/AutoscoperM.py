@@ -900,10 +900,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             filename = os.path.join(outputDir, volumeSubDir, segmentName + ".tif")
             IO.castVolumeForTIFF(segmentVolume)
             IO.writeVolume(segmentVolume, filename)
-            spacing = segmentVolume.GetSpacing()
             origin = segmentVolume.GetOrigin()
+            spacing = segmentVolume.GetSpacing()
             filename = os.path.join(outputDir, transformSubDir, segmentName + ".tfm")
-            IO.writeTFMFile(filename, [1, 1, spacing[2]], origin)
+            IO.writeTFMFile(filename, spacing, origin)
             self.showVolumeIn3D(segmentVolume)
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
