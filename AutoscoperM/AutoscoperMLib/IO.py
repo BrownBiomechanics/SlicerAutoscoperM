@@ -14,10 +14,7 @@ def loadSegmentation(segmentationNode: slicer.vtkMRMLSegmentationNode, filename:
     Load a segmentation file
 
     :param segmentationNode: Segmentation node
-    :type segmentationNode: slicer.vtkMRMLSegmentationNode
-
     :param filename: File name
-    :type filename: str
     """
     # Get the extension
     extension = os.path.splitext(filename)[1]
@@ -42,9 +39,7 @@ def generateCameraCalibrationFile(camera: Camera, filename: str):
     Generates a VTK camera calibration json file from the given camera.
 
     :param camera: Camera
-    :type camera: Camera
     :param filename: Output file name
-    :type filename: str
     """
     import json
 
@@ -77,28 +72,14 @@ def generateConfigFile(
     Generates the v1.1 config file for the trial
 
     :param mainDirectory: Main directory
-    :type mainDirectory: str
-
     :param subDirectories: Sub directories
-    :type subDirectories: list[str]
-
     :param trialName: Trial name
-    :type trialName: str
-
     :param volumeFlip: Volume flip
-    :type volumeFlip: list[int]
-
     :param voxelSize: Voxel size
-    :type voxelSize: list[float]
-
     :param renderResolution: Render resolution
-    :type renderResolution: list[int]
-
     :param optimizationOffsets: Optimization offsets
-    :type optimizationOffsets: list[int]
 
     :return: Path to the config file
-    :rtype: str
     """
     import datetime
 
@@ -175,10 +156,7 @@ def writeVolume(volumeNode: slicer.vtkMRMLVolumeNode, filename: str):
     Writes a volumeNode to a file.
 
     :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
-
     :param filename: Output file name
-    :type filename: str
     """
     slicer.util.exportNode(volumeNode, filename, {"useCompression": False}, world=True)
 
@@ -189,7 +167,6 @@ def castVolumeForTIFF(volumeNode: slicer.vtkMRMLVolumeNode):
     only supports unsigned short TIFF stacks.
 
     :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
     """
     _castVolume(volumeNode, "Short")
 
@@ -254,13 +231,8 @@ def writeTFMFile(filename: str, spacing: list[float], origin: list[float]):
     Writes a TFM file
 
     :param filename: Output file name
-    :type filename: str
-
     :param spacing: Spacing
-    :type spacing: list[float]
-
     :param origin: Origin
-    :type origin: list[float]
     """
 
     tfm = vtk.vtkMatrix4x4()
@@ -285,13 +257,9 @@ def writeTemporyFile(filename: str, data: vtk.vtkImageData) -> str:
     Writes a temporary file to the slicer temp directory
 
     :param filename: Output file name
-    :type filename: str
-
     :param data: data
-    :type data: vtk.vtkImageData
 
     :return: Path to the file
-    :rtype: str
     """
 
     slicerTempDirectory = slicer.app.temporaryPath
@@ -309,7 +277,6 @@ def removeTemporyFile(filename: str):
     Removes a temporary file from the slicer temp directory
 
     :param filename: Output file name
-    :type filename: str
     """
 
     slicerTempDirectory = slicer.app.temporaryPath

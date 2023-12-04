@@ -839,13 +839,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Save subvolumes from segmentation to outputDir
 
         :param volumeNode: volume node
-        :type volumeNode: slicer.vtkMRMLVolumeNode
         :param segmentationNode: segmentation node
-        :type segmentationNode: slicer.vtkMRMLSegmentationNode
         :param outputDir: output directory
-        :type outputDir: str
         :param progressCallback: progress callback, defaults to None
-        :type progressCallback: callable, optional
         """
 
         if not os.path.exists(outputDir):
@@ -898,13 +894,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Validates that the provided inputs are not None.
 
         :param args: list of inputs to validate
-        :type args: tuple
-
         :param kwargs: list of inputs to validate
-        :type kwargs: dict
 
         :return: True if all inputs are valid, False otherwise
-        :rtype: bool
         """
         statuses = []
         for arg in args:
@@ -934,13 +926,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Checks that the provided paths exist.
 
         :param args: list of paths to validate
-        :type args: tuple
-
         :param kwargs: list of paths to validate
-        :type kwargs: dict
 
         :return: True if all paths exist, False otherwise
-        :rtype: bool
         """
         statuses = []
         for arg in args:
@@ -964,7 +952,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Creates a path if it does not exist.
 
         :param args: list of paths to create
-        :type args: tuple
         """
         for arg in args:
             if not os.path.exists(arg):
@@ -980,11 +967,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Extracts a subvolume from the volumeNode that contains all of the segments in the segmentationNode
 
         :param volumeNode: volume node
-        :type volumeNode: slicer.vtkMRMLVolumeNode
         :param segmentationNode: segmentation node
-        :type segmentationNode: slicer.vtkMRMLSegmentationNode
         :param cameraDebugMode: Whether or not to keep the extracted volume in the scene, defaults to False
-        :type cameraDebugMode: bool, optional
 
         :return: tuple containing the extracted volume and the bounds of the volume
         :rtype: tuple[vtk.vtkImageData, list[float]]
@@ -1038,17 +1022,11 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Generates VRG files for each camera in the cameras list
 
         :param cameras: list of cameras
-        :type cameras: list[RadiographGeneration.Camera]
         :param volumeNode: volume node
-        :type volumeNode: slicer.vtkMRMLVolumeNode
         :param outputDir: output directory
-        :type outputDir: str
         :param width: width of the radiographs
-        :type width: int
         :param height: height of the radiographs
-        :type height: int
         :param progressCallback: progress callback, defaults to None
-        :type progressCallback: callable, optional
         """
         self.createPathsIfNotExists(outputDir)
 
@@ -1126,15 +1104,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         and generates the camera calibration files
 
         :param bestCameras: list of optimized cameras
-        :type bestCameras: list[RadiographGeneration.Camera]
         :param tmpDir: temporary directory
-        :type tmpDir: str
         :param finalDir: final directory
-        :type finalDir: str
         :param calibDir: calibration directory
-        :type calibDir: str
         :param progressCallback: progress callback, defaults to None
-        :type progressCallback: callable, optional
         """
         self.validatePaths(tmpDir=tmpDir)
         self.createPathsIfNotExists(finalDir, calibDir)

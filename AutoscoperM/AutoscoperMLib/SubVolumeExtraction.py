@@ -17,25 +17,13 @@ def automaticSegmentation(
     Automatic segmentation of the volume node using the threshold value.
 
     :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
-
     :param threshold: Threshold value
-    :type threshold: int
-
     :param marginSize: Margin size
-    :type marginSize: int
-
     :param segmentationName: Segmentation name. Default is None.
-    :type segmentationName: str
-
     :param progressCallback: Progress callback. Default is None.
-    :type progressCallback: callable
-
     :param maxProgressValue: Maximum progress value. Default is 100.
-    :type maxProgressValue: int
 
     :return: Segmentation node
-    :rtype: slicer.vtkMRMLSegmentationNode
     """
     if progressCallback is None:
         logging.warning("[AutoscoperMLib.SubVolumeExtraction.automaticSegmentation] No progress bar callback given.")
@@ -109,16 +97,10 @@ def extractSubVolume(
     Extracts the subvolume from the volume node using the segmentation node.
 
     :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
-
     :param segmentationNode: Segmentation node
-    :type segmentationNode: slicer.vtkMRMLVolumeNode
-
     :param segmentID: Segment ID. Default is None.
-    :type segmentID: str
 
     :return: Subvolume node.
-    :rtype: slicer.vtkMRMLVolumeNode
     """
     # Create segment editor to get access to effects
     segmentationEditorWidget = slicer.qMRMLSegmentEditorWidget()
@@ -157,16 +139,10 @@ def mergeSegments(
     Otherwise the merge is performed in place on the given segmentation node.
 
     :param volumeNode: Volume node
-    :type volumeNode: slicer.vtkMRMLVolumeNode
-
     :param segmentationNode: Segmentation node.
-    :type segmentationNode: slicer.vtkMRMLSegmentationNode
-
     :param newSegmentationNode: If True, a new node is created. Otherwise it is performed in place. Default is True.
-    :type newSegmentationNode: bool
 
     :return: Segmentation node with the merged segments. If newSegmentationNode is False, None is returned.
-    :rtype: slicer.vtkMRMLSegmentationNode | None
     """
     mergeNode = segmentationNode
     if newSegmentationNode:
@@ -222,13 +198,8 @@ def _fillHole(segmentID: str, segmentationEditorWidget: slicer.qMRMLSegmentEdito
      Fills internal holes in the segment.
 
     :param segmentID: Segment ID
-    :type segmentID: str
-
     :param segmentationEditorWidget: Segment editor widget
-    :type segmentationEditorWidget: slicer.qMRMLSegmentEditorWidget
-
     :param marginSize: Margin size.
-    :type marginSize: int
     """
     segmentationEditorWidget.setCurrentSegmentID(segmentID)
 
@@ -267,10 +238,8 @@ def _getItemFromFolder(folderName: str) -> slicer.vtkMRMLNode:
     Gets the item from the folder and removes the folder.
 
     :param folderName: Name of the folder
-    :type folderName: str
 
     :return: Node in the folder
-    :rtype: slicer.vtkMRMLNode
     """
     pluginHandler = slicer.qSlicerSubjectHierarchyPluginHandler().instance()
     folderPlugin = pluginHandler.pluginByName("Folder")
