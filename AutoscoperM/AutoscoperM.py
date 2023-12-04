@@ -833,7 +833,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         outputDir: str,
         volumeSubDir: str = "Volumes",
         transformSubDir: str = "Transforms",
-        progressCallback=None,
+        progressCallback: Optional[callable] = None,
     ) -> bool:
         """
         Save subvolumes from segmentation to outputDir
@@ -1032,7 +1032,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         outputDir: str,
         width: int,
         height: int,
-        progressCallback=None,
+        progressCallback: Optional[callable] = None,
     ) -> None:
         """
         Generates VRG files for each camera in the cameras list
