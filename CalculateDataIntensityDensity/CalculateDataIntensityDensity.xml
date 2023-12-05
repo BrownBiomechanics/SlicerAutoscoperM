@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
-  <category>Tracking</category>
+  <category>Tracking.Advanced</category>
   <index>0</index>
   <title>CalculateDataIntensityDensity</title>
   <description><![CDATA[Calculate the data intensity density of the provided radiograph.]]></description>
