@@ -18,7 +18,7 @@ set(proj ${SUPERBUILD_TOPLEVEL_PROJECT})
 
 # Project dependencies
 set(${proj}_DEPENDS
-  Autoscoper
+  Autoscoper-OpenCL
   )
 
 ExternalProject_Include_Dependencies(${proj}

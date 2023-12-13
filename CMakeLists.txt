@@ -27,18 +27,7 @@ mark_as_superbuild(GIT_EXECUTABLE)
 #-----------------------------------------------------------------------------
 # Options
 
-set(_reason "")
-if(DEFINED ENV{Autoscoper_RENDERING_BACKEND})
-  set(_reason " (initialized from env. variable)")
-  set(_default_backend $ENV{Autoscoper_RENDERING_BACKEND})
-elseif(NOT DEFINED Autoscoper_RENDERING_BACKEND)
-  set(_reason " (initialized from default value)")
-  set(_default_backend "OpenCL")
-endif()
-
-set(Autoscoper_RENDERING_BACKEND "${_default_backend}" CACHE STRING "Backend to use for DRR and radiograph rendering")
-set_property(CACHE Autoscoper_RENDERING_BACKEND PROPERTY STRINGS "CUDA" "OpenCL")
-message(STATUS "Setting Autoscoper_RENDERING_BACKEND to ${Autoscoper_RENDERING_BACKEND}${_reason}")
+# NA
 
 #-----------------------------------------------------------------------------
 # SuperBuild setup
@@ -59,17 +48,22 @@ add_subdirectory(VirtualRadiographGeneration)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
-if(DEFINED Autoscoper_DIR)
-  list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${Autoscoper_DIR};Autoscoper;ALL;/")
-endif()
+foreach(varname IN LISTS ${SUPERBUILD_TOPLEVEL_PROJECT}_EP_LABEL_Autoscoper_DIRS)
+  if(DEFINED ${varname})
+    message(STATUS "Adding install rules for Autoscoper in ${varname}")
+    list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${${varname}};Autoscoper;ALL;/")
+  endif()
+endforeach()
 set(${EXTENSION_NAME}_CPACK_INSTALL_CMAKE_PROJECTS "${EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS}" CACHE STRING "List of external projects to install" FORCE)
 
-if(APPLE)
+if(APPLE OR TRUE)
   set(EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES)
-  set(GLEW_RUNTIME_LIBRARY_DIR "${Autoscoper_DIR}/../Autoscoper-build/GLEW-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}")
-  list(APPEND EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES ${GLEW_RUNTIME_LIBRARY_DIR})
-  set(TIFF_RUNTIME_LIBRARY_DIR "${Autoscoper_DIR}/../Autoscoper-build/TIFF-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}")
-  list(APPEND EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES ${TIFF_RUNTIME_LIBRARY_DIR})
+  foreach(varname IN LISTS ${SUPERBUILD_TOPLEVEL_PROJECT}_EP_LABEL_Autoscoper_DIRS)
+    set(GLEW_RUNTIME_LIBRARY_DIR "${${varname}}/../GLEW-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}")
+    list(APPEND EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES ${GLEW_RUNTIME_LIBRARY_DIR})
+    set(TIFF_RUNTIME_LIBRARY_DIR "${${varname}}/../TIFF-install/${Slicer_INSTALL_THIRDPARTY_LIB_DIR}")
+    list(APPEND EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES ${TIFF_RUNTIME_LIBRARY_DIR})
+  endforeach()
   set(${EXTENSION_NAME}_FIXUP_BUNDLE_LIBRARY_DIRECTORIES "${EXTENSION_FIXUP_BUNDLE_LIBRARY_DIRECTORIES}" CACHE STRING "List of directories to look up libraries to copy into the application package" FORCE)
 endif()
 

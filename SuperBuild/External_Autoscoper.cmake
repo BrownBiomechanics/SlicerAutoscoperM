@@ -1,5 +1,9 @@
 
-set(proj Autoscoper)
+# Support redefining "proj" variable to allow reusing this project while
+# specifying a different value for ${proj}_RENDERING_BACKEND.
+if(NOT DEFINED proj)
+  set(proj Autoscoper)
+endif()
 
 # Set dependency list
 set(${proj}_DEPENDS
@@ -14,8 +18,8 @@ if(${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${proj})
 endif()
 
 # Sanity checks
-if(DEFINED Autoscoper_DIR AND NOT EXISTS ${Autoscoper_DIR})
-  message(FATAL_ERROR "Autoscoper_DIR [${Autoscoper_DIR}] variable is defined but corresponds to nonexistent directory")
+if(DEFINED ${proj}_DIR AND NOT EXISTS ${${proj}_DIR})
+  message(FATAL_ERROR "${proj}_DIR [${${proj}_DIR}] variable is defined but corresponds to nonexistent directory")
 endif()
 
 if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${proj})
@@ -31,7 +35,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_TAG
-    "e14b2da04dd7786c288613cafd11215bbf394027"
+    "d476e2cbb4fc72a4dea5f4d467676bf9b978d8ce"
     QUIET
   )
 
@@ -43,11 +47,11 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
     set(Slicer_INSTALL_THIRDPARTY_LIB_DIR ${Slicer_THIRDPARTY_LIB_DIR})
   endif()
 
-  set(Autoscoper_INSTALL_DEPENDENCIES TRUE)
+  set(${proj}_INSTALL_DEPENDENCIES TRUE)
   if(APPLE)
     # Dependency libraries (e.g Glew) will be installed leveraging
     # the macOS "fix-up" script.
-    set(Autoscoper_INSTALL_DEPENDENCIES FALSE)
+    set(${proj}_INSTALL_DEPENDENCIES FALSE)
   endif()
 
   if(APPLE)
@@ -57,17 +61,17 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       )
   endif()
 
-  if(NOT "${Autoscoper_RENDERING_BACKEND}" MATCHES "^(CUDA|OpenCL)$")
-    message(FATAL_ERROR "Autoscoper_RENDERING_BACKEND must be set to CUDA or OpenCL")
+  if(NOT "${${proj}_RENDERING_BACKEND}" MATCHES "^(CUDA|OpenCL)$")
+    message(FATAL_ERROR "${proj}RENDERING_BACKEND must be set to CUDA or OpenCL")
   endif()
 
-  if(Autoscoper_RENDERING_BACKEND STREQUAL "OpenCL")
-    set(Autoscoper_OPENCL_USE_ICD_LOADER TRUE)
+  if(${proj}_RENDERING_BACKEND STREQUAL "OpenCL")
+    set(${proj}_OPENCL_USE_ICD_LOADER TRUE)
     if(APPLE)
-      set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
+      set(${proj}_OPENCL_USE_ICD_LOADER FALSE)
     endif()
   else()
-    set(Autoscoper_OPENCL_USE_ICD_LOADER FALSE)
+    set(${proj}_OPENCL_USE_ICD_LOADER FALSE)
   endif()
 
   if(UNIX AND NOT APPLE)
@@ -81,6 +85,11 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       -DOpenGL_GL_PREFERENCE:STRING=${OpenGL_GL_PREFERENCE}
       )
   endif()
+
+  if(NOT DEFINED ${proj}_ARTIFACT_SUFFIX)
+    set(${proj}_ARTIFACT_SUFFIX "-${${proj}_RENDERING_BACKEND}")
+  endif()
+  ExternalProject_Message(${proj} "${proj}_ARTIFACT_SUFFIX:${${proj}_ARTIFACT_SUFFIX}")
 
   ExternalProject_Add(${proj}
     ${${proj}_EP_ARGS}
@@ -107,11 +116,12 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       # Options
       -DAutoscoper_SUPERBUILD:BOOL=ON
       -DAutoscoper_CONFIGURE_LAUCHER_SCRIPT:BOOL=OFF
-      -DAutoscoper_OPENCL_USE_ICD_LOADER:BOOL=${Autoscoper_OPENCL_USE_ICD_LOADER}
-      -DAutoscoper_INSTALL_DEPENDENCIES:BOOL=${Autoscoper_INSTALL_DEPENDENCIES}
+      -DAutoscoper_OPENCL_USE_ICD_LOADER:BOOL=${${proj}_OPENCL_USE_ICD_LOADER}
+      -DAutoscoper_INSTALL_DEPENDENCIES:BOOL=${${proj}_INSTALL_DEPENDENCIES}
       -DAutoscoper_INSTALL_Qt_LIBRARIES:BOOL=OFF
       -DAutoscoper_INSTALL_SAMPLE_DATA:BOOL=OFF
-      -DAutoscoper_RENDERING_BACKEND:STRING=${Autoscoper_RENDERING_BACKEND}
+      -DAutoscoper_RENDERING_BACKEND:STRING=${${proj}_RENDERING_BACKEND}
+      -DAutoscoper_ARTIFACT_SUFFIX:STRING=${${proj}_ARTIFACT_SUFFIX}
       -DQt5_DIR:PATH=${Qt5_DIR}
       # Dependencies
       # NA
@@ -157,7 +167,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
     ${EP_BINARY_DIR}/GLEW-install/${_lib_subdir} # Glew library
     ${EP_BINARY_DIR}/TIFF-install/${_lib_subdir} # TIFF library
     )
-  if(Autoscoper_OPENCL_USE_ICD_LOADER)
+  if(${proj}_OPENCL_USE_ICD_LOADER)
     list(APPEND ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
       ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${_lib_subdir}/${CMAKE_CFG_INTDIR} # OpenCL library
       )
@@ -185,4 +195,7 @@ else()
   ExternalProject_Add_Empty(${proj} DEPENDS ${${proj}_DEPENDS})
 endif()
 
-mark_as_superbuild(${proj}_DIR:PATH)
+mark_as_superbuild(
+  VARS ${proj}_DIR:PATH
+  LABELS "Autoscoper_DIRS"
+  )

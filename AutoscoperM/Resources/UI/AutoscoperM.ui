@@ -25,17 +25,30 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QPushButton" name="startAutoscoper">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="toolTip">
-          <string>Start the Autoscoper executable bundled in the extension.</string>
-         </property>
-         <property name="text">
-          <string>Launch Autoscoper</string>
-         </property>
-        </widget>
+        <layout class="QHBoxLayout" name="launcherAutoscoperHorizontalLayout">
+         <item>
+          <widget class="QPushButton" name="startAutoscoper">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>Start the Autoscoper executable bundled in the extension.</string>
+           </property>
+           <property name="text">
+            <string>Launch Autoscoper</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="autoscoperRenderingBackendComboBox"/>
+         </item>
+        </layout>
        </item>
        <item>
         <widget class="QPushButton" name="closeAutoscoper">

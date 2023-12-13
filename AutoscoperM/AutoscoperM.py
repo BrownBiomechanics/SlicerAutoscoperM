@@ -153,6 +153,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = None
         self._parameterNode = None
         self._updatingGUIFromParameterNode = False
+        self.autoscoperExecutables = {}
 
     def setup(self):
         """
@@ -186,9 +187,26 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # NA
 
         # Buttons
-        self.ui.startAutoscoper.connect("clicked(bool)", self.lookupAndStartAutoscoper)
+        self.ui.startAutoscoper.connect("clicked(bool)", self.startAutoscoper)
         self.ui.closeAutoscoper.connect("clicked(bool)", self.logic.stopAutoscoper)
         self.ui.loadConfig.connect("clicked(bool)", self.onLoadConfig)
+
+        # Lookup Autoscoper executables
+        for backend in ["CUDA", "OpenCL"]:
+            executableName = AutoscoperMWidget.autoscoperExecutableName(backend)
+            logging.info(f"Looking up '{executableName}' executable")
+            path = shutil.which(executableName)
+            if path:
+                self.autoscoperExecutables[backend] = path
+                logging.info(f"Found '{path}'")
+            else:
+                logging.info("No executable found")
+
+        if not self.autoscoperExecutables:
+            logging.error("Failed to lookup autoscoper executables")
+
+        # Available Autoscoper backends
+        self.ui.autoscoperRenderingBackendComboBox.addItems(list(self.autoscoperExecutables.keys()))
 
         # Sample Data Buttons
         self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Wrist"))
@@ -323,14 +341,29 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self._parameterNode.EndModify(wasModified)
 
-    def lookupAndStartAutoscoper(self):
-        """Lookup autoscoper executable and start a new process
+    @property
+    def autoscoperExecutableToLaunchBackend(self):
+        return self.ui.autoscoperRenderingBackendComboBox.currentText
+
+    @autoscoperExecutableToLaunchBackend.setter
+    def autoscoperExecutableToLaunchBackend(self, value):
+        self.ui.autoscoperRenderingBackendComboBox.currentText = value
+
+    @staticmethod
+    def autoscoperExecutableName(backend=None):
+        """Returns the Autoscoper executable name to lookup given a backend name."""
+        suffix = f"-{backend}" if backend else ""
+        return f"autoscoper{suffix}"
+
+    def startAutoscoper(self):
+        """Start a new process using the Autoscoper executable corresponding to the selected backend.
 
         This call waits that the process has been started and returns.
         """
-        executablePath = shutil.which("autoscoper")
-        if not executablePath:
-            logging.error("autoscoper executable not found")
+        try:
+            executablePath = self.autoscoperExecutables[self.autoscoperExecutableToLaunchBackend]
+        except KeyError:
+            logging.error("Autoscoper executable not found")
             return
         self.logic.startAutoscoper(executablePath)
 
@@ -350,7 +383,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.logic.AutoscoperProcess.state() != qt.QProcess.Running and slicer.util.confirmYesNoDisplay(
             "Autoscoper is not running. Do you want to start Autoscoper?"
         ):
-            self.lookupAndStartAutoscoper()
+            self.startAutoscoper()
 
         if self.logic.AutoscoperProcess.state() != qt.QProcess.Running:
             logging.error("failed to load the Sample Data: Autoscoper is not running. ")
