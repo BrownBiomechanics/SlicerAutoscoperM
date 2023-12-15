@@ -21,6 +21,19 @@ set(${proj}_DEPENDS
   Autoscoper-OpenCL
   )
 
+if(DEFINED ENV{SlicerAutoscoperM_CUDA_PATH})
+  set(ENV{CUDA_PATH} $ENV{SlicerAutoscoperM_CUDA_PATH})
+endif()
+
+find_package(CUDA)
+if(CUDA_FOUND)
+  # Variable expected by find_package(CUDA) also used in Autoscoper
+  mark_as_superbuild(VARS CUDA_TOOLKIT_ROOT_DIR PROJECTS Autoscoper-CUDA)
+  list(APPEND ${proj}_DEPENDS
+    Autoscoper-CUDA
+    )
+endif()
+
 ExternalProject_Include_Dependencies(${proj}
   PROJECT_VAR proj
   SUPERBUILD_VAR ${EXTENSION_NAME}_SUPERBUILD
