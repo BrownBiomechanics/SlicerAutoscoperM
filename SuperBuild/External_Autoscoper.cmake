@@ -144,17 +144,22 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   set(${proj}_DIR ${EP_BINARY_DIR}/Autoscoper-build)
 
+  set(_lib_subdir ${Slicer_INSTALL_THIRDPARTY_LIB_DIR})
+  if(WIN32)
+    set(_lib_subdir ${Slicer_INSTALL_THIRDPARTY_BIN_DIR})
+  endif()
+
   #-----------------------------------------------------------------------------
   # Launcher setting specific to build tree
 
   # library paths
   set(${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
-    ${EP_BINARY_DIR}/GLEW-Install/${Slicer_THIRDPARTY_BIN_DIR} # Glew library
-    ${EP_BINARY_DIR}/TIFF-Install/${Slicer_THIRDPARTY_BIN_DIR} # TIFF library
+    ${EP_BINARY_DIR}/GLEW-Install/${_lib_subdir} # Glew library
+    ${EP_BINARY_DIR}/TIFF-Install/${_lib_subdir} # TIFF library
     )
   if(Autoscoper_OPENCL_USE_ICD_LOADER)
     list(APPEND ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
-      ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${Slicer_THIRDPARTY_BIN_DIR}/${CMAKE_CFG_INTDIR} # OpenCL library
+      ${EP_BINARY_DIR}/OpenCL-ICD-Loader-build/${_lib_subdir}/${CMAKE_CFG_INTDIR} # OpenCL library
       )
   endif()
   mark_as_superbuild(
