@@ -154,8 +154,8 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   # library paths
   set(${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
-    ${EP_BINARY_DIR}/GLEW-Install/${_lib_subdir} # Glew library
-    ${EP_BINARY_DIR}/TIFF-Install/${_lib_subdir} # TIFF library
+    ${EP_BINARY_DIR}/GLEW-install/${_lib_subdir} # Glew library
+    ${EP_BINARY_DIR}/TIFF-install/${_lib_subdir} # TIFF library
     )
   if(Autoscoper_OPENCL_USE_ICD_LOADER)
     list(APPEND ${proj}_LIBRARY_PATHS_LAUNCHER_BUILD
