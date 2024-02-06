@@ -265,7 +265,7 @@
              <item row="2" column="2" colspan="2">
               <widget class="QLineEdit" name="vrgSubDir">
                <property name="text">
-                <string>VRGs</string>
+                <string>RadiographImages</string>
                </property>
               </widget>
              </item>
