@@ -22,13 +22,32 @@ set(${proj}_DEPENDS
   )
 
 if(DEFINED ENV{SlicerAutoscoperM_CUDA_PATH})
-  set(ENV{CUDA_PATH} $ENV{SlicerAutoscoperM_CUDA_PATH})
+  file(TO_CMAKE_PATH "$ENV{SlicerAutoscoperM_CUDA_PATH}" _cuda_path)
+  if(CMAKE_GENERATOR MATCHES "Visual Studio")
+    # https://cmake.org/cmake/help/latest/variable/CMAKE_GENERATOR_TOOLSET.html#visual-studio-toolset-selection
+    if(NOT "${CMAKE_GENERATOR_TOOLSET}" MATCHES "cuda=")
+      set(_generator_toolset_key_value "cuda=${_cuda_path}")
+      if(NOT "${CMAKE_GENERATOR_TOOLSET}" STREQUAL "")
+        set(CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET},${_generator_toolset_key_value}")
+      else()
+        set(CMAKE_GENERATOR_TOOLSET "${_generator_toolset_key_value}")
+      endif()
+    endif()
+  else()
+    # See https://cmake.org/cmake/help/latest/envvar/CUDACXX.html#cudacxx
+    set(ENV{CUDACXX} $ENV{_cuda_path}/bin/nvcc)
+  endif()
 endif()
 
-find_package(CUDA)
-if(CUDA_FOUND)
-  # Variable expected by find_package(CUDA) also used in Autoscoper
-  mark_as_superbuild(VARS CUDA_TOOLKIT_ROOT_DIR PROJECTS Autoscoper-CUDA)
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  # Variable expected by CUDA language also used in Autoscoper
+  if(CMAKE_GENERATOR MATCHES "Visual Studio")
+    mark_as_superbuild(VARS CMAKE_GENERATOR_TOOLSET PROJECTS Autoscoper-CUDA)
+  else()
+    mark_as_superbuild(VARS CMAKE_CUDA_COMPILER PROJECTS Autoscoper-CUDA)
+  endif()
   list(APPEND ${proj}_DEPENDS
     Autoscoper-CUDA
     )
