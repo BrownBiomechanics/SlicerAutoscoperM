@@ -35,7 +35,7 @@ if(DEFINED ENV{SlicerAutoscoperM_CUDA_PATH})
     endif()
   else()
     # See https://cmake.org/cmake/help/latest/envvar/CUDACXX.html#cudacxx
-    set(ENV{CUDACXX} $ENV{_cuda_path}/bin/nvcc)
+    set(ENV{CUDACXX} ${_cuda_path}/bin/nvcc)
   endif()
 endif()
 
