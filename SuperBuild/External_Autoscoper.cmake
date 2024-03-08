@@ -35,7 +35,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_TAG
-    "cebc017fe182f0a9e8292eaeb4a2fb173bc52af2"
+    "3d5370a77b83d005c799e7cf91bed4cc7d463e92"
     QUIET
   )
 
