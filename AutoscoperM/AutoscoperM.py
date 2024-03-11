@@ -631,13 +631,17 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             int(self.ui.flipZ.isChecked()),
         ]
 
+        if self.logic.is_4d:
+            voxel_spacing = self.logic.getItemInSequence(volumeNode, 0).GetSpacing()
+        else:
+            voxel_spacing = volumeNode.GetSpacing()
         # generate the config file
         configFilePath = IO.generateConfigFile(
             mainOutputDir,
             [tiffSubDir, vrgSubDir, calibrationSubDir],
             trialName,
             volumeFlip=volumeFlip,
-            voxelSize=volumeNode.GetSpacing(),
+            voxelSize=voxel_spacing,
             renderResolution=[int(width / 2), int(height / 2)],
             optimizationOffsets=optimizationOffsets,
         )
