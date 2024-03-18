@@ -286,7 +286,7 @@
              <item row="3" column="2" colspan="2">
               <widget class="QLineEdit" name="cameraSubDir">
                <property name="enabled">
-                <bool>true</bool>
+                <bool>false</bool>
                </property>
                <property name="text">
                 <string>Calibration</string>
@@ -726,6 +726,9 @@
             <property name="text">
              <string>Flip Y</string>
             </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item row="0" column="3">
@@ -759,6 +762,9 @@
            <widget class="QCheckBox" name="flipX">
             <property name="text">
              <string>Flip X</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
