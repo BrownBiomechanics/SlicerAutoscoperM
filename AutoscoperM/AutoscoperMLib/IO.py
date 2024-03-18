@@ -158,7 +158,12 @@ def writeVolume(volumeNode: slicer.vtkMRMLVolumeNode, filename: str):
     :param volumeNode: Volume node
     :param filename: Output file name
     """
+    # Remove any spacing
+    spacing = volumeNode.GetSpacing()
+    volumeNode.SetSpacing([1, 1, 1])
     slicer.util.exportNode(volumeNode, filename, {"useCompression": False}, world=True)
+    # Restore the spacing
+    volumeNode.SetSpacing(spacing)
 
 
 def castVolumeForTIFF(volumeNode: slicer.vtkMRMLVolumeNode):
