@@ -159,16 +159,7 @@ def writeVolume(volumeNode: slicer.vtkMRMLVolumeNode, filename: str):
     :param volumeNode: Volume node
     :param filename: Output file name
     """
-    # tfm = vtk.vtkMatrix4x4()
-    # tfm.Identity()
-    # tfm.SetElement(0, 0, -1)
-    # tfm.SetElement(1, 1, -1)
-    # transformNode = slicer.vtkMRMLLinearTransformNode()
-    # transformNode.SetMatrixTransformToParent(tfm)
-    # slicer.mrmlScene.AddNode(transformNode)
     slicer.util.exportNode(volumeNode, filename, {"useCompression": False}, world=True)
-
-    # slicer.mrmlScene.RemoveNode(transformNode)
 
 
 def castVolumeForTIFF(volumeNode: slicer.vtkMRMLVolumeNode):
