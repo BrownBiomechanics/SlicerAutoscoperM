@@ -546,19 +546,29 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             nPossibleCameras, bounds, camOffset, [width, height], self.ui.camDebugCheckbox.isChecked()
         )
 
+        # TODO: Validate that both the tmp directory and the camera calibration directory are empty before starting
+
+        cameraDir = os.path.join(mainOutputDir, cameraSubDir)
+        if not os.path.exists(cameraDir):
+            os.mkdir(cameraDir)
+        for cam in cameras:  # Generate Camera Calib files
+            camFName = os.path.join(cameraDir, f"cam{cam.id}.json")
+            IO.generateCameraCalibrationFile(cam, camFName)
+
         self.updateProgressBar(10)
 
         # Generate initial VRG for each camera
         for i in range(numFrames):
             filename = self.logic.cleanFilename(curName, i) if not self.ui.idxOnly.isChecked() else i
             self.logic.generateVRGForCameras(
-                cameras,
+                os.path.join(mainOutputDir, cameraSubDir),
                 currentNode,
                 os.path.join(mainOutputDir, tmpDir),
                 [width, height],
                 filename=filename,
-                progressCallback=self.updateProgressBar,
             )
+            progress = (i + 1) / numFrames * 40 + 10
+            self.updateProgressBar(progress)
 
             currentNode, curName = self.logic.getNextItemInSequence(volumeNode) if self.logic.is_4d else currentNode
 
@@ -566,6 +576,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         bestCameras = RadiographGeneration.optimizeCameras(
             cameras, os.path.join(mainOutputDir, tmpDir), nOptimizedCameras, progressCallback=self.updateProgressBar
         )
+
+        shutil.rmtree(os.path.join(mainOutputDir, cameraSubDir))
 
         # Move the optimized VRGs to the final directory and generate the camera calibration files
         self.logic.generateCameraCalibrationFiles(
@@ -808,7 +820,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 os.path.join(mainOutputDir, vrgDir),
                 [width, height],
                 filename=filename,
-                progressCallback=self.updateProgressBar,
             )
             currentNode, curName = self.logic.getNextItemInSequence(volumeNode) if self.logic.is_4d else currentNode
 
@@ -1161,17 +1172,16 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     def generateVRGForCameras(
         self,
-        cameras: list[RadiographGeneration.Camera],
+        cameraDir: str,
         volumeNode: slicer.vtkMRMLVolumeNode,
         outputDir: str,
         size: list[int],
         filename: str,
-        progressCallback=None,
     ) -> None:
         """
         Generates VRG files for each camera in the cameras list
 
-        :param cameras: list of cameras
+        :param cameraDir: Directory containing the camera JSON files
         :param volumeNode: volume node
         :param outputDir: output directory
         :type outputDir: str
@@ -1179,19 +1189,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :type size: list[int]
         :param filename: filename of the VRG
         :type filename: str
-        :param progressCallback: progress callback, defaults to None
         """
         self.createPathsIfNotExists(outputDir)
-
-        if not progressCallback:
-            logging.warning(
-                "[AutoscoperM.logic.generateVRGForCameras] "
-                "No progress callback provided, progress bar will not be updated"
-            )
-
-            def progressCallback(x):
-                return x
-
         # Apply a thresh of 0 to the volume to remove air from the volume
         thresholdScalarVolume = slicer.modules.thresholdscalarvolume
         parameters = {
@@ -1209,41 +1208,28 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         # Execute CLI for each camera
         cliModule = slicer.modules.virtualradiographgeneration
-        cliNodes = []
-        for cam in cameras:
-            logging.info(f"Generating {filename}.tif for {cam.id}")
-            cameraDir = os.path.join(outputDir, f"cam{cam.id}")
-            self.createPathsIfNotExists(cameraDir)
-            camera = cam.vtkCamera
-            parameters = {
-                "inputVolumeFileName": os.path.join(slicer.app.temporaryPath, volumeFileName),
-                "cameraPosition": [camera.GetPosition()[0], camera.GetPosition()[1], camera.GetPosition()[2]],
-                "cameraFocalPoint": [camera.GetFocalPoint()[0], camera.GetFocalPoint()[1], camera.GetFocalPoint()[2]],
-                "cameraViewUp": [camera.GetViewUp()[0], camera.GetViewUp()[1], camera.GetViewUp()[2]],
-                "cameraViewAngle": camera.GetViewAngle(),
-                "clippingRange": [camera.GetClippingRange()[0], camera.GetClippingRange()[1]],
-                "outputFileName": os.path.join(cameraDir, f"{filename}.tif"),
-                "outputWidth": size[0],
-                "outputHeight": size[1],
-            }
-            cliNode = slicer.cli.run(cliModule, None, parameters)  # run asynchronously
-            cliNodes.append(cliNode)
+        parameters = {
+            "inputVolumeFileName": os.path.join(slicer.app.temporaryPath, volumeFileName),
+            "cameraDir": cameraDir,
+            "radiographMainOutDir": outputDir,
+            "outputFileName": f"{filename}.tif",
+            "outputWidth": size[0],
+            "outputHeight": size[1],
+        }
+        cliNode = slicer.cli.run(cliModule, None, parameters)  # run asynchronously
 
         # Note: CLI nodes are currently not executed in parallel. See https://github.com/Slicer/Slicer/pull/6723
         # This just allows the UI to remain responsive while the CLI nodes are running for now.
 
         # Wait for all the CLI nodes to finish
-        for i, cliNode in enumerate(cliNodes):
-            while cliNodes[i].GetStatusString() != "Completed":
-                slicer.app.processEvents()
-            if cliNode.GetStatus() & cliNode.ErrorsMask:
-                # error
-                errorText = cliNode.GetErrorText()
-                slicer.mrmlScene.RemoveNode(cliNode)
-                raise ValueError("CLI execution failed: " + errorText)
+        while cliNode.GetStatusString() != "Completed":
+            slicer.app.processEvents()
+        if cliNode.GetStatus() & cliNode.ErrorsMask:
+            # error
+            errorText = cliNode.GetErrorText()
             slicer.mrmlScene.RemoveNode(cliNode)
-            progress = ((i + 1) / len(cameras)) * 30 + 10
-            progressCallback(progress)
+            raise ValueError("CLI execution failed: " + errorText)
+        slicer.mrmlScene.RemoveNode(cliNode)
 
     def generateCameraCalibrationFiles(
         self,

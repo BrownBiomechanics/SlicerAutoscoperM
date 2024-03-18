@@ -52,6 +52,7 @@ def generateCameraCalibrationFile(camera: Camera, filename: str):
     contents["view-angle"] = camera.vtkCamera.GetViewAngle()
     contents["image-width"] = camera.imageSize[0]
     contents["image-height"] = camera.imageSize[1]
+    contents["clipping-range"] = camera.vtkCamera.GetClippingRange()
 
     contents_json = json.dumps(contents, indent=4)
 

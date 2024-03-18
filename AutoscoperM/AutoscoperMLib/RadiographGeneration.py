@@ -230,7 +230,7 @@ def optimizeCameras(
             slicer.mrmlScene.RemoveNode(cliNode)
             raise ValueError("CLI execution failed: " + errorText)
         cameras[i].DID = float(cliNodes[i].GetOutputText())  # cliNodes[i].GetParameterAsString("dataIntensityDensity")
-        progress = ((i + 1) / len(cameras)) * 50 + 40
+        progress = ((i + 1) / len(cameras)) * 40 + 50
         progressCallback(progress)
         slicer.mrmlScene.RemoveNode(cliNodes[i])
 
