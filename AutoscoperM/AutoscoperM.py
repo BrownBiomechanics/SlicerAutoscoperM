@@ -1184,11 +1184,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :param cameraDir: Directory containing the camera JSON files
         :param volumeNode: volume node
         :param outputDir: output directory
-        :type outputDir: str
         :param size: size of the VRG
-        :type size: list[int]
         :param filename: filename of the VRG
-        :type filename: str
         """
         self.createPathsIfNotExists(outputDir)
         # Apply a thresh of 0 to the volume to remove air from the volume
@@ -1313,11 +1310,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Returns the item at the specified index in the sequence node
 
         :param sequenceNode: sequence node
-        :type sequenceNode: slicer.vtkMRMLSequenceNode
         :param idx: index
-        :type idx: int
+
         :return: item at the specified index
-        :rtype: slicer.vtkMRMLNode
         """
         if type(sequenceNode) != slicer.vtkMRMLSequenceNode:
             logging.error("[AutoscoperM.logic.getItemInSequence] sequenceNode must be a sequence node")
@@ -1336,9 +1331,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         Returns the next item in the sequence
 
         :param sequenceNode: sequence node
-        :type sequenceNode: slicer.vtkMRMLSequenceNode
+
         :return: next item in the sequence
-        :rtype: slicer.vtkMRMLNode
         """
         if type(sequenceNode) != slicer.vtkMRMLSequenceNode:
             logging.error("[AutoscoperM.logic.getNextItemInSequence] sequenceNode must be a sequence node")
