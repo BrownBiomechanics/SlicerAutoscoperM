@@ -1004,7 +1004,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :param cameraDebugMode: Whether or not to keep the extracted volume in the scene, defaults to False
 
         :return: tuple containing the extracted volume and the bounds of the volume
-        :rtype: tuple[vtk.vtkImageData, list[float]]
         """
         mergedSegmentationNode = SubVolumeExtraction.mergeSegments(volumeNode, segmentationNode)
         newVolumeNode = SubVolumeExtraction.extractSubVolume(

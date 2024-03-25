@@ -11,10 +11,8 @@ def loadTraAsSequence(data: np.ndarray) -> list[vtk.vtkMatrix4x4]:
     Converts the tracking data to a list of vtkMatrix4x4.
 
     :param data: The tracking data.
-    :type data: np.ndarray
 
     :return: The tracking data as a sequence.
-    :rtype: list[vtk.vtkMatrix4x4]
     """
     _, cols = data.shape
 
@@ -50,10 +48,8 @@ def tmpTFMLoader(
     Loads a tfm file and returns the matrix.
 
     :param fileName: The filename of the tfm file.
-    :type fileName: str
 
     :return: The matrix from the tfm file.
-    :rtype: vtk.vtkMatrix4x4
     """
     with open(fileName) as f:
         lines = f.readlines()
@@ -73,9 +69,7 @@ class ModelData:
     Class to store the model data.
 
     :param modelFileName: The filename of the model.
-    :type modelFileName: str
     :param groundTruthSequenceData: The ground truth sequence data.
-    :type groundTruthSequenceData: np.ndarray
     """
 
     def __init__(self, modelFileName: str, groundTruthSequenceData: np.ndarray):
@@ -140,7 +134,6 @@ class ModelData:
         Load the user tracking sequence.
 
         :param userSequence: The user tracking sequence.
-        :type userSequence: list[vtk.vtkMatrix4x4]
         """
         self.userSequence = userSequence
 
@@ -149,7 +142,6 @@ class ModelData:
         Update the transform of the model node.
 
         :param index: The index of the transform.
-        :type index: int
         """
         if self.userSequence is None:
             slicer.util.errorDisplay("No user tracking data!")
@@ -168,11 +160,8 @@ class ModelData:
         in the correct position.
 
         :param index: The index of the transform.
-        :type index: int
         :param translationTol: The translation tolerance in mm.
-        :type translationTol: float
         :param degreeTol: The rotation tolerance in degrees.
-        :type degreeTol: float
         """
         if self.userSequence is None:
             slicer.util.errorDisplay("No user tracking data!")
@@ -241,7 +230,6 @@ class ModelData:
         Update the color of the model node.
 
         :param rgb: The RGB color to set.
-        :type rgb: Tuple[float, float, float]
         """
         self.userDisplayNode.SetColor(rgb[0], rgb[1], rgb[2])
 
@@ -250,7 +238,6 @@ class ModelData:
         Hide or show the ground truth model node.
 
         :param visible: whether the ground truth model node is visible or not.
-        :type visible: bool
         """
         self.groundTruthDisplayNode.SetVisibility(visible)
 
@@ -260,9 +247,7 @@ class Scene:
     Class to store the scene data.
 
     :param sampleDataType: The sample data type.
-    :type sampleDataType: str
     :param userSequenceFileName: The filename of the user sequence.
-    :type userSequenceFileName: str
     """
 
     def __init__(self, sampleDataType: str, userSequenceFileName: str):
@@ -312,10 +297,8 @@ class Scene:
         Internal function to parse the user sequence.
 
         :param userSequenceFileName: The filename of the user sequence.
-        :type userSequenceFileName: str
 
         :return: List of indices that correspond to any models with Nan tracking values.
-        :rtype: list[int]
         """
 
         if not os.path.exists(userSequenceFileName):
@@ -355,11 +338,8 @@ class Scene:
         Update the transforms of the models and evaluate the error compared to the ground truth.
 
         :param index: The index of the transform.
-        :type index: int
         :param translationTol: The translation tolerance.
-        :type translationTol: float
         :param degreeTol: The degree tolerance.
-        :type degreeTol: float
         """
         self.currentFrame = index
         for i, model in enumerate(self.models):  # Probably want to make this multithreaded instead of sequential.

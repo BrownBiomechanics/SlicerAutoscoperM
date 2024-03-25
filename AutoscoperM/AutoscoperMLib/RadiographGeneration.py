@@ -74,22 +74,12 @@ def generateNCameras(
     Generate N cameras
 
     :param N: Number of cameras to generate
-    :type N: int
-
     :param bounds: Bounds of the volume
-    :type bounds: list[int]
-
     :param offset: Offset from the volume. Defaults to 100.
-    :type offset: int
-
     :param imageSize: Image size. Defaults to [512,512].
-    :type imageSize: list[int]
-
     :param camDebugMode: Whether or not to show the cameras in the scene. Defaults to False.
-    :type camDebugMode: bool
 
     :return: List of cameras
-    :rtype: list[Camera]
     """
     # find the center of the bounds
     center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
@@ -165,17 +155,12 @@ def generateCamerasFromMarkups(
     Generate cameras from a markups fiducial node
 
     :param fiduaicalNode: Markups fiducial node
-    :type fiduaicalNode: slicer.vtkMRMLMarkupsFiducialNode
     :param volumeBounds: Bounds of the volume
-    :type volumeBounds: list[int]
     :param clippingRange: Clipping range
-    :type clippingRange: tuple[int]
     :param viewAngle: View angle
-    :type viewAngle: int
     :param imageSize: Image size. Defaults to [512,512].
-    :type imageSize: list[int]
     :param cameraDebug: Whether or not to show the cameras in the scene. Defaults to False.
-    :type cameraDebug: bool
+
     :return: List of cameras
     """
     center = [
@@ -210,16 +195,10 @@ def optimizeCameras(
     Optimize the cameras by finding the N cameras with the best data intensity density.
 
     :param cameras: Cameras
-    :type cameras: list[Camera]
-
     :param cameraDir: Camera directory
-    :type cameraDir: str
-
     :param nOptimizedCameras: Number of optimized cameras to find
-    :type nOptimizedCameras: int
 
     :return: Optimized cameras
-    :rtype: list[Camera]
     """
     import glob
     import os
