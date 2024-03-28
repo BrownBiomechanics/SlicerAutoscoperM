@@ -21,59 +21,38 @@
       <description><![CDATA[Input volume file name (*.mhd, *.mha)]]></description>
       <channel>input</channel>
     </string>
-    <float-vector>
-      <name>cameraPosition</name>
-      <label>Camera Position</label>
+    <string>
+      <name>cameraDir</name>
+      <label>Camera File Directory</label>
       <index>2</index>
-      <description><![CDATA[Camera position]]></description>
+      <description><![CDATA[Camera File Directory]]></description>
       <channel>input</channel>
-    </float-vector>
-    <float-vector>
-      <name>cameraFocalPoint</name>
-      <label>Camera Focal Point</label>
+    </string>
+    <string>
+      <name>radiographMainOutDir</name>
+      <label>Main Output Directory for Radiographs</label>
       <index>3</index>
-      <description><![CDATA[Camera focal point]]></description>
+      <description><![CDATA[Radiograph Main Output Directory]]></description>
       <channel>input</channel>
-    </float-vector>
-    <float-vector>
-      <name>cameraViewUp</name>
-      <label>Camera View Up</label>
-      <index>4</index>
-      <description><![CDATA[Camera view up]]></description>
-      <channel>input</channel>
-    </float-vector>
-    <float>
-      <name>cameraViewAngle</name>
-      <label>Camera View Angle</label>
-      <index>5</index>
-      <description><![CDATA[Camera view angle]]></description>
-      <channel>input</channel>
-    </float>
-    <float-vector>
-      <name>clippingRange</name>
-      <label>Clipping Range</label>
-      <index>6</index>
-      <description><![CDATA[Clipping range]]></description>
-      <channel>input</channel>
-    </float-vector>
+    </string>
     <string>
       <name>outputFileName</name>
       <label>Output File Name</label>
-      <index>7</index>
+      <index>4</index>
       <description><![CDATA[Output file name (*.tiff)]]></description>
       <channel>input</channel>
     </string>
     <integer>
       <name>outputWidth</name>
       <label>Output Width</label>
-      <index>8</index>
+      <index>5</index>
       <description><![CDATA[Width of the output image]]></description>
       <channel>input</channel>
     </integer>
     <integer>
       <name>outputHeight</name>
       <label>Output Height</label>
-      <index>9</index>
+      <index>6</index>
       <description><![CDATA[Height of the output image]]></description>
       <channel>input</channel>
     </integer>

@@ -1,34 +1,22 @@
 #!/usr/bin/env python-real
 
+import concurrent.futures as cf
+import glob
 import os
 import sys
 
+import numpy as np
+import SimpleITK as sitk
 
-def main(whiteRadiographFName: str) -> float:
-    """
-    Calculates the data intensity density of the given camera on its corresponding white radiograph.
-    Internal function used by :func:`optimizeCameras`.
 
-    :param whiteRadiographFName: White radiograph file name
-
-    return Data intensity density
-    """
-
-    import numpy as np
-    import SimpleITK as sitk
-
-    MEAN_COMPARISON = 170  # 255 / 3 * 2
-
+def calcDID(whiteRadiographFName):
+    MEAN_COMPARISON = 185
     # Read in the white radiograph
-    if not isinstance(whiteRadiographFName, str):
-        raise TypeError(f"whiteRadiographFName must be a string, not {type(whiteRadiographFName)}")
-    if not os.path.isfile(whiteRadiographFName):
-        raise FileNotFoundError(f"File {whiteRadiographFName} not found.")
     whiteRadiograph = sitk.ReadImage(whiteRadiographFName)
 
     # Superpixel Segmentation
     slicImageFilter = sitk.SLICImageFilter()
-    slicImageFilter.SetSuperGridSize([15, 15, 15])  # smaller grid size = finer grid overall default is [50,50,50]
+    slicImageFilter.SetSuperGridSize([85, 85, 85])
     labelImage = slicImageFilter.Execute(whiteRadiograph)
 
     # Get the mean pixel value for each label
@@ -64,6 +52,32 @@ def main(whiteRadiographFName: str) -> float:
     largest = sortedComponentImage == 1
 
     return np.sum(sitk.GetArrayFromImage(largest))
+
+
+def main(whiteRadiographDirName: str) -> float:
+    """
+    Calculates the data intensity density of the given camera on its corresponding white radiograph.
+    Internal function used by :func:`optimizeCameras`.
+
+    :param whiteRadiographFName: White radiograph file name
+
+    return Data intensity density
+    """
+    whiteRadiographFiles = glob.glob(os.path.join(whiteRadiographDirName, "*.tif"))
+
+    if not isinstance(whiteRadiographDirName, str):
+        raise TypeError(f"whiteRadiographDirName must be a string, not {type(whiteRadiographDirName)}")
+    if not os.path.isdir(whiteRadiographDirName):
+        raise FileNotFoundError(f"Directory {whiteRadiographDirName} not found.")
+    if len(whiteRadiographFiles) == 0:
+        raise FileNotFoundError(f"No white radiographs found in {whiteRadiographDirName}")
+
+    dids = []
+    with cf.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(calcDID, wrFName) for wrFName in whiteRadiographFiles]
+        for future in cf.as_completed(futures):
+            dids.append(future.result())
+    return np.mean(dids)
 
 
 if __name__ == "__main__":

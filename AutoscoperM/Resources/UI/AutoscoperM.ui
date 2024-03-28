@@ -151,6 +151,7 @@
             <property name="nodeTypes">
              <stringlist notr="true">
               <string>vtkMRMLScalarVolumeNode</string>
+              <string>vtkMRMLSequenceNode</string>
              </stringlist>
             </property>
             <property name="hideChildNodeTypes">
@@ -210,13 +211,17 @@
              <bool>true</bool>
             </property>
             <layout class="QGridLayout" name="gridLayout_3">
-             <item row="5" column="2">
-              <widget class="QSpinBox" name="vrgRes_width">
-               <property name="maximum">
-                <number>999999999</number>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_14">
+               <property name="text">
+                <string>Camera Subdirectory:</string>
                </property>
-               <property name="value">
-                <number>1760</number>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_20">
+               <property name="text">
+                <string>Partial Volume Transforms Subdirectory:</string>
                </property>
               </widget>
              </item>
@@ -227,27 +232,6 @@
                </property>
               </widget>
              </item>
-             <item row="6" column="2" colspan="2">
-              <widget class="QLineEdit" name="vrgTempDir">
-               <property name="text">
-                <string>VRG-Temp</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="2" colspan="2">
-              <widget class="QLineEdit" name="tfmSubDir">
-               <property name="text">
-                <string>Transforms</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="2" colspan="2">
-              <widget class="QLineEdit" name="cameraSubDir">
-               <property name="text">
-                <string>Calibration</string>
-               </property>
-              </widget>
-             </item>
              <item row="0" column="2" colspan="2">
               <widget class="QLineEdit" name="tiffSubDir">
                <property name="text">
@@ -255,10 +239,17 @@
                </property>
               </widget>
              </item>
-             <item row="6" column="0">
-              <widget class="QLabel" name="label_16">
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_15">
                <property name="text">
-                <string>VRG Temp Subdirectory:</string>
+                <string>VRG Resolution: (width,height)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="2" colspan="2">
+              <widget class="QLineEdit" name="vrgTempDir">
+               <property name="text">
+                <string>VRG-Temp</string>
                </property>
               </widget>
              </item>
@@ -266,13 +257,6 @@
               <widget class="QLineEdit" name="vrgSubDir">
                <property name="text">
                 <string>RadiographImages</string>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="label_15">
-               <property name="text">
-                <string>VRG Resolution: (width,height)</string>
                </property>
               </widget>
              </item>
@@ -292,17 +276,20 @@
                </property>
               </widget>
              </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_12">
+             <item row="6" column="0">
+              <widget class="QLabel" name="label_16">
                <property name="text">
-                <string>Partial Volume Subdirectory:</string>
+                <string>VRG Temp Subdirectory:</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_20">
+             <item row="3" column="2" colspan="2">
+              <widget class="QLineEdit" name="cameraSubDir">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
                <property name="text">
-                <string>Partial Volume Transforms Subdirectory:</string>
+                <string>Calibration</string>
                </property>
               </widget>
              </item>
@@ -316,10 +303,27 @@
                </property>
               </widget>
              </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_14">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_12">
                <property name="text">
-                <string>Camera Subdirectory:</string>
+                <string>Partial Volume Subdirectory:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QSpinBox" name="vrgRes_width">
+               <property name="maximum">
+                <number>999999999</number>
+               </property>
+               <property name="value">
+                <number>1760</number>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2" colspan="2">
+              <widget class="QLineEdit" name="tfmSubDir">
+               <property name="text">
+                <string>Transforms</string>
                </property>
               </widget>
              </item>
@@ -330,6 +334,13 @@
                </property>
                <property name="checked">
                 <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="0">
+              <widget class="QCheckBox" name="idxOnly">
+               <property name="text">
+                <string>Only use indices for radiograph filename</string>
                </property>
               </widget>
              </item>
@@ -715,6 +726,9 @@
             <property name="text">
              <string>Flip Y</string>
             </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item row="0" column="3">
@@ -748,6 +762,9 @@
            <widget class="QCheckBox" name="flipX">
             <property name="text">
              <string>Flip X</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
             </property>
            </widget>
           </item>

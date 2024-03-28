@@ -1,5 +1,9 @@
 #!/usr/bin/env python-real
 
+import concurrent.futures as cf
+import glob
+import json
+import os
 import sys
 
 import vtk
@@ -97,36 +101,37 @@ def generateVRG(
     writer.Write()
 
 
-def _createVTKCamera(
-    position: list[float], focalPoint: list[float], viewUp: list[float], clippingRange: list[float], viewAngle: float
-) -> vtk.vtkCamera:
+def _createVTKCameras(cameraDir: str, radiographMainDir: str):
     """
     Generates a vtkCamera object from the given parameters
     """
-    camera = vtk.vtkCamera()
-    camera.SetPosition(position[0], position[1], position[2])
-    camera.SetFocalPoint(focalPoint[0], focalPoint[1], focalPoint[2])
-    camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2])
-    camera.SetViewAngle(viewAngle)
-    camera.SetClippingRange(clippingRange[0], clippingRange[1])
-    return camera
+    cameras = {}
+    for camFName in glob.glob(os.path.join(cameraDir, "*.json")):
+        with open(camFName) as f:
+            camJSON = json.load(f)
 
+        cam = vtk.vtkCamera()
+        cam.SetPosition(camJSON["camera-position"])
+        cam.SetFocalPoint(camJSON["focal-point"])
+        cam.SetViewUp(camJSON["view-up"])
+        cam.SetViewAngle(camJSON["view-angle"])
+        cam.SetClippingRange(camJSON["clipping-range"])
 
-def _strToFloatList(strList: str) -> list[float]:
-    """
-    Converts a string of floats to a list of floats
-    """
-    return [float(x) for x in strList.split(",")]
+        cameraSubDirName = os.path.basename(camFName).split(".")[0]
+        cameraDirName = os.path.join(radiographMainDir, cameraSubDirName)
+        if not os.path.exists(cameraDirName):
+            os.mkdir(cameraDirName)
+
+        cameras[cam] = cameraDirName
+
+    return cameras
 
 
 if __name__ == "__main__":
     expected_args = [
         "inputVolumeFileName",
-        "cameraPosition",
-        "cameraFocalPoint",
-        "cameraViewUp",
-        "cameraViewAngle",
-        "clippingRange",
+        "cameraDir",
+        "radiographMainOutDir",
         "outputFileName",
         "outputWidth",
         "outputHeight",
@@ -137,17 +142,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     volumeData = sys.argv[1]
-    cameraPosition = _strToFloatList(sys.argv[2])
-    cameraFocalPoint = _strToFloatList(sys.argv[3])
-    cameraViewUp = _strToFloatList(sys.argv[4])
-    cameraViewAngle = float(sys.argv[5])
-    clippingRange = _strToFloatList(sys.argv[6])
-    outputFileName = sys.argv[7]
-    outputWidth = int(sys.argv[8])
-    outputHeight = int(sys.argv[9])
+    cameraDir = sys.argv[2]
+    radiographMainOutDir = sys.argv[3]
+    outputFileName = sys.argv[4]
+    outputWidth = int(sys.argv[5])
+    outputHeight = int(sys.argv[6])
 
     # create the camera
-    camera = _createVTKCamera(cameraPosition, cameraFocalPoint, cameraViewUp, clippingRange, cameraViewAngle)
+    cameras = _createVTKCameras(cameraDir, radiographMainOutDir)
 
     # Read the mhd file
     reader = vtk.vtkMetaImageReader()
@@ -155,4 +157,12 @@ if __name__ == "__main__":
     reader.Update()
 
     # generate the virtual radiograph
-    generateVRG(camera, reader.GetOutput(), outputFileName, outputWidth, outputHeight)
+    with cf.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                generateVRG, cam, reader.GetOutput(), os.path.join(camDir, outputFileName), outputWidth, outputHeight
+            )
+            for cam, camDir in cameras.items()
+        ]
+        for future in cf.as_completed(futures):
+            future.result()

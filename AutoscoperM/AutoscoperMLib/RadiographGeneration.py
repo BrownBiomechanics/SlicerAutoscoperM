@@ -200,7 +200,6 @@ def optimizeCameras(
 
     :return: Optimized cameras
     """
-    import glob
     import os
 
     if not progressCallback:
@@ -213,11 +212,11 @@ def optimizeCameras(
     cliNodes = []
     for i in range(len(cameras)):
         camera = cameras[i]
-        vrgFName = glob.glob(os.path.join(cameraDir, f"cam{camera.id}", "*.tif"))[0]
+        vrgDirName = os.path.join(cameraDir, f"cam{camera.id}")
         cliNode = slicer.cli.run(
             cliModule,
             None,
-            {"whiteRadiographFileName": vrgFName},
+            {"whiteRadiographDirName": vrgDirName},
             wait_for_completion=False,
         )
         cliNodes.append(cliNode)
@@ -231,7 +230,7 @@ def optimizeCameras(
             slicer.mrmlScene.RemoveNode(cliNode)
             raise ValueError("CLI execution failed: " + errorText)
         cameras[i].DID = float(cliNodes[i].GetOutputText())  # cliNodes[i].GetParameterAsString("dataIntensityDensity")
-        progress = ((i + 1) / len(cameras)) * 50 + 40
+        progress = ((i + 1) / len(cameras)) * 40 + 50
         progressCallback(progress)
         slicer.mrmlScene.RemoveNode(cliNodes[i])
 
