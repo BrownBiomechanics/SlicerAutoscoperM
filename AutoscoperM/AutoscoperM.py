@@ -651,6 +651,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         vols = glob.glob(os.path.join(mainOutputDir, volumeSubDir, "*.tif"))
         tfms = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*.tfm"))
 
+        if len(vols) == 0:
+            logging.error("No data found")
+            return
+
         # Match the volumes and transforms
         paired = {}
         for vol in vols:
@@ -662,6 +666,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     break
             if vol not in paired:
                 logging.error(f"No transform found for {vol}")
+                return
 
         for vol, tfm in paired.items():
             volumeNode = slicer.util.loadVolume(vol)
