@@ -903,13 +903,18 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             segmentVolume.SetName(segmentName)
             filename = os.path.join(outputDir, volumeSubDir, segmentName + ".tif")
             IO.castVolumeForTIFF(segmentVolume)
-            # Remove any spacing before writing volume out
-            spacing = segmentVolume.GetSpacing()
+
+            # Remove spacing before writing volume out
+            segmentVolume.DisableModifiedEventOn()
+            originalSpacing = segmentVolume.GetSpacing()
             segmentVolume.SetSpacing([1.0, 1.0, 1.0])
             IO.writeVolume(segmentVolume, filename)
             # Restore spacing
-            segmentVolume.SetSpacing(spacing)
+            segmentVolume.SetSpacing(originalSpacing)
+            segmentVolume.DisableModifiedEventOff()
+
             origin = segmentVolume.GetOrigin()
+            spacing = segmentVolume.GetSpacing()
             filename = os.path.join(outputDir, transformSubDir, segmentName + ".tfm")
             IO.writeTFMFile(filename, spacing, origin)
             self.showVolumeIn3D(segmentVolume)
