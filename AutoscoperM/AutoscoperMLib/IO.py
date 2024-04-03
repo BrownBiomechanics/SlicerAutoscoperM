@@ -56,6 +56,11 @@ def generateCameraCalibrationFile(camera: Camera, filename: str):
 
     contents_json = json.dumps(contents, indent=4)
 
+    # Add comments to file
+    contents_json += """\n//Note: the clipping-range field is not used by Autoscoper,
+    this is used to commuincate information between AutoscoperM and
+    VirtualRadiographGeneration modules within Slicer."""
+
     with open(filename, "w+") as f:
         f.write(contents_json)
 
