@@ -52,14 +52,11 @@ def generateCameraCalibrationFile(camera: Camera, filename: str):
     contents["view-angle"] = camera.vtkCamera.GetViewAngle()
     contents["image-width"] = camera.imageSize[0]
     contents["image-height"] = camera.imageSize[1]
+    # The clipping-range field is not used by Autoscoper, it is used to communicate
+    # information between AutoscoperM and VirtualRadiographGeneration modules within Slicer.
     contents["clipping-range"] = camera.vtkCamera.GetClippingRange()
 
     contents_json = json.dumps(contents, indent=4)
-
-    # Add comments to file
-    contents_json += """\n//Note: the clipping-range field is not used by Autoscoper,
-    this is used to commuincate information between AutoscoperM and
-    VirtualRadiographGeneration modules within Slicer."""
 
     with open(filename, "w+") as f:
         f.write(contents_json)
