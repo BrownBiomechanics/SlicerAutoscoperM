@@ -566,9 +566,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             progress = (i + 1) / numFrames * 40 + 10
             self.updateProgressBar(progress)
 
-            currentNode, curName = (
-                self.logic.getNextItemInSequence(volumeNode) if self.logic.IsSequenceVolume(volumeNode) else currentNode
-            )
+            if self.logic.IsSequenceVolume(volumeNode):
+                currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
 
         # Optimize the camera positions
         bestCameras = RadiographGeneration.optimizeCameras(
@@ -791,6 +790,11 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self.logic.IsVolumeCentered(volumeNode):
             logging.warning("Volume is not centered at the origin. This may cause issues with Autoscoper.")
 
+        for cam in self.logic.vrgManualCameras:
+            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.json"))
+
+        self.updateProgressBar(0)
+
         numFrames = 1
         currentNode = volumeNode
         curName = currentNode.GetName()
@@ -801,20 +805,20 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for i in range(numFrames):
             filename = self.logic.cleanFilename(curName, i)
             self.logic.generateVRGForCameras(
-                self.logic.vrgManualCameras,
+                os.path.join(mainOutputDir, cameraDir),
                 currentNode,
                 os.path.join(mainOutputDir, vrgDir),
                 [width, height],
                 filename=filename,
             )
-            currentNode, curName = (
-                self.logic.getNextItemInSequence(volumeNode) if self.logic.IsSequenceVolume(volumeNode) else currentNode
-            )
+
+            progress = ((i + 1) / numFrames) * 100
+            self.updateProgressBar(progress)
+
+            if self.logic.IsSequenceVolume(volumeNode):
+                currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
 
         self.updateProgressBar(100)
-
-        for cam in self.logic.vrgManualCameras:
-            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.json"))
 
     def onMarkupNodeChanged(self, node):
         if node is None:
@@ -1335,8 +1339,8 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     @staticmethod
     def cleanFilename(volumeName: str, index: Optional[int] = None) -> str:
-        filename = slicer.qSlicerCoreIOManager().forceFileNameValidCharacters(volumeName)
-        return f"{index}_{filename}" if index is not None else filename
+        filename = slicer.qSlicerCoreIOManager().forceFileNameValidCharacters(volumeName.replace(" ", "_"))
+        return f"{index:03d}_{filename}" if index is not None else filename
 
     @staticmethod
     def createSequenceNodeInBrowser(nodename, sequenceNode):
@@ -1361,8 +1365,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     def GetRASBounds(node: Union[slicer.vtkMRMLVolumeNode, slicer.vtkMRMLSequenceNode]) -> list[float]:
         bounds = [0] * 6
         if AutoscoperMLogic.IsSequenceVolume(node):
-            return AutoscoperMLogic.getItemInSequence(node, 0)[0].GetRASBounds(bounds)
-        return node.GetRASBounds(bounds)
+            AutoscoperMLogic.getItemInSequence(node, 0)[0].GetRASBounds(bounds)
+        else:
+            node.GetRASBounds(bounds)
+        return bounds
 
     @staticmethod
     def IsVolumeCentered(node: Union[slicer.vtkMRMLVolumeNode, slicer.vtkMRMLSequenceNode]) -> bool:

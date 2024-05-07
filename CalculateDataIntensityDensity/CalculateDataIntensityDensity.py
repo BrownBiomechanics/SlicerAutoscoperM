@@ -72,12 +72,14 @@ def main(whiteRadiographDirName: str) -> float:
     if len(whiteRadiographFiles) == 0:
         raise FileNotFoundError(f"No white radiographs found in {whiteRadiographDirName}")
 
-    dids = []
-    with cf.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(calcDID, wrFName) for wrFName in whiteRadiographFiles]
-        for future in cf.as_completed(futures):
-            dids.append(future.result())
-    return np.mean(dids)
+    if len(whiteRadiographFiles) > 1:  # Avoid overhead in the single 3DCT case
+        dids = []
+        with cf.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(calcDID, wrFName) for wrFName in whiteRadiographFiles]
+            for future in cf.as_completed(futures):
+                dids.append(future.result())
+        return np.mean(dids)
+    return calcDID(whiteRadiographFiles[0])
 
 
 if __name__ == "__main__":
