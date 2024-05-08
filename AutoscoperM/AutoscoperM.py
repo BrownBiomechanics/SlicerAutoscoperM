@@ -5,12 +5,14 @@ import os
 import shutil
 import time
 import zipfile
+from itertools import product
 from typing import Optional, Union
 
 import qt
 import slicer
 import vtk
 import vtkAddon
+from numpy.typing import NDArray
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
@@ -1583,3 +1585,21 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         dicom2autNode.SetMatrixTransformToParent(dicom2aut)
         slicer.mrmlScene.AddNode(dicom2autNode)
         return dicom2autNode
+
+    @staticmethod
+    def vtkToNumpy(matrix: vtk.vtkMatrix4x4) -> NDArray:
+        """Utility function for converting a 4x4 vtk matrix to a 4x4 numpy array."""
+        import numpy as np
+
+        array = np.empty((4, 4))
+        for i, j in product(range(4), range(4)):
+            array[i, j] = matrix.GetElement(i, j)
+        return array
+
+    @staticmethod
+    def numpyToVtk(array: NDArray) -> vtk.vtkMatrix4x4:
+        """Utility function for converting a 4x4 numpy array to a 4x4 vtk matrix."""
+        matrix = vtk.vtkMatrix4x4()
+        for i, j in product(range(4), range(4)):
+            matrix.SetElement(i, j, array[i, j])
+        return matrix
