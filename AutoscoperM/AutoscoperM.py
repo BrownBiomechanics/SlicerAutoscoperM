@@ -5,11 +5,13 @@ import os
 import shutil
 import time
 import zipfile
+from itertools import product
 from typing import Optional, Union
 
 import qt
 import slicer
 import vtk
+from numpy.typing import NDArray
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
@@ -1071,15 +1073,12 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             tfm.SetElement(1, 3, origin[1])
             tfm.SetElement(2, 3, origin[2])
 
-            IO.createTRAFile(
-                volName=segmentName,
-                trialName=None,
-                outputDir=outputDir,
-                trackingsubDir=trackingSubDir,
-                volSize=segmentVolumeSize,
-                Origin2DicomTransformFile=origin2DicomTransformFile,
-                transform=tfm,
-            )
+            if origin2DicomTransformFile is not None:
+                tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomTransformFile)
+            tfm = self.applySlicer2AutoscoperTransform(tfm, segmentVolumeSize, segmentVolume.GetOrigin())
+            filename = f"{segmentName}.tra"
+            filename = os.path.join(outputDir, trackingSubDir, filename)
+            IO.writeTRA(filename, [tfm])
 
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
@@ -1427,3 +1426,52 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         if AutoscoperMLogic.IsSequenceVolume(node):
             return AutoscoperMLogic.getItemInSequence(node, 0)[0].IsCentered()
         return node.IsCentered()
+
+    @staticmethod
+    def applyOrigin2DicomTransform(transform: vtk.vtkMatrix4x4, Origin2DicomTransformFile: str) -> vtk.vtkMatrix4x4:
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.SetMatrixTransformToParent(transform)
+        slicer.mrmlScene.AddNode(transformNode)
+        origin2DicomTransformNode = slicer.util.loadNodeFromFile(Origin2DicomTransformFile)
+        origin2DicomTransformNode.Inverse()
+        transformNode.SetAndObserveTransformNodeID(origin2DicomTransformNode.GetID())
+        transformNode.HardenTransform()
+        slicer.mrmlScene.RemoveNode(origin2DicomTransformNode)
+
+        transformMatrix = vtk.vtkMatrix4x4()
+        transformNode.GetMatrixTransformToParent(transformMatrix)
+        return transformMatrix
+
+    @staticmethod
+    def applySlicer2AutoscoperTransform(
+        transform: vtk.vtkMatrix4x4, volSize: list[float], origin: list[float]
+    ) -> vtk.vtkMatrix4x4:
+        """Utility function for converting a transform between the Slicer and Autoscoper coordinate systems."""
+        # https://github.com/BrownBiomechanics/Autoscoper/issues/280
+        transform.SetElement(1, 1, -transform.GetElement(1, 1))  # Flip Y
+        transform.SetElement(2, 2, -transform.GetElement(2, 2))  # Flip Z
+
+        # Add the volume origin
+        for i in range(3):
+            transform.SetElement(i, 3, transform.GetElement(i, 3) + origin[i])
+
+        transform.SetElement(0, 3, transform.GetElement(0, 3) - volSize[0])  # Offset X
+        return transform
+
+    @staticmethod
+    def vtkToNumpy(matrix: vtk.vtkMatrix4x4) -> NDArray:
+        """Utility function for converting a 4x4 vtk matrix to a 4x4 numpy array."""
+        import numpy as np
+
+        array = np.empty((4, 4))
+        for i, j in product(range(4), range(4)):
+            array[i, j] = matrix.GetElement(i, j)
+        return array
+
+    @staticmethod
+    def numpyToVtk(array: NDArray) -> vtk.vtkMatrix4x4:
+        """Utility function for converting a 4x4 numpy array to a 4x4 vtk matrix."""
+        matrix = vtk.vtkMatrix4x4()
+        for i, j in product(range(4), range(4)):
+            matrix.SetElement(i, j, array[i, j])
+        return matrix
