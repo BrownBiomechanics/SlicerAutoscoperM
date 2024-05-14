@@ -594,6 +594,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         slicer.util.messageBox("Success!")
 
+        if not self.logic.IsSequenceVolume(volumeNode):
+            firstNode = volumeNode
+        else:
+            firstNode, _ = self.logic.getItemInSequence(volumeNode, 0)
+        firstNode.SetAndObserveTransformNodeID(tfmNode.GetID())
+        firstNode.HardenTransform()
+        slicer.mrmlScene.RemoveNode(tfmNode)
+
     def onGenerateConfig(self):
         """
         Generates a complete config file (including all partial volumes, radiographs,
@@ -995,6 +1003,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         outputDir: str,
         volumeSubDir: str = "Volumes",
         transformSubDir: str = "Transforms",
+        trackingSubDir: str = "Tracking",
         progressCallback: Optional[callable] = None,
     ) -> bool:
         """
@@ -1021,6 +1030,14 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         segmentIDs = vtk.vtkStringArray()
         segmentationNode.GetSegmentation().GetSegmentIDs(segmentIDs)
         numSegments = segmentIDs.GetNumberOfValues()
+
+        tfmFiles = glob.glob(os.path.join(outputDir, transformSubDir, "*.tfm"))
+        tfms = [tfm if os.path.basename(tfm).split(".")[0] == "Origin2Dicom" else None for tfm in tfmFiles]
+        try:
+            origin2DicomTransformFile = next(item for item in tfms if item is not None)
+        except StopIteration:
+            origin2DicomTransformFile = None
+
         for idx in range(numSegments):
             segmentID = segmentIDs.GetValue(idx)
             segmentName = segmentationNode.GetSegmentation().GetSegment(segmentID).GetName()
@@ -1043,6 +1060,27 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             filename = os.path.join(outputDir, transformSubDir, segmentName + ".tfm")
             IO.writeTFMFile(filename, spacing, origin)
             self.showVolumeIn3D(segmentVolume)
+
+            bounds = [0] * 6
+            segmentVolume.GetRASBounds(bounds)
+            segmentVolumeSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
+
+            # Write TRA
+            tfm = vtk.vtkMatrix4x4()
+            tfm.SetElement(0, 3, origin[0])
+            tfm.SetElement(1, 3, origin[1])
+            tfm.SetElement(2, 3, origin[2])
+
+            IO.createTRAFile(
+                volName=segmentName,
+                trialName=None,
+                outputDir=outputDir,
+                trackingsubDir=trackingSubDir,
+                volSize=segmentVolumeSize,
+                Origin2DicomTransformFile=origin2DicomTransformFile,
+                transform=tfm,
+            )
+
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
         # Set the  volumeNode to be the active volume

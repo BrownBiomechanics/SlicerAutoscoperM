@@ -255,6 +255,58 @@ def writeTFMFile(filename: str, spacing: list[float], origin: list[float]):
     slicer.mrmlScene.RemoveNode(transformNode)
 
 
+def createTRAFile(
+    volName: str,
+    trialName: str,
+    outputDir: str,
+    trackingsubDir: str,
+    volSize: list[float],
+    Origin2DicomTransformFile: str,
+    transform: vtk.vtkMatrix4x4,
+):
+    transformNode = slicer.vtkMRMLLinearTransformNode()
+    transformNode.SetMatrixTransformToParent(transform)
+    slicer.mrmlScene.AddNode(transformNode)
+
+    if Origin2DicomTransformFile is not None:
+        origin2DicomTransformNode = slicer.util.loadNodeFromFile(Origin2DicomTransformFile)
+        origin2DicomTransformNode.Inverse()
+        transformNode.SetAndObserveTransformNodeID(origin2DicomTransformNode.GetID())
+        transformNode.HardenTransform()
+        slicer.mrmlScene.RemoveNode(origin2DicomTransformNode)
+
+    filename = f"{trialName}_{volName}.tra" if trialName is not None else f"{volName}.tra"
+    filename = os.path.join(outputDir, trackingsubDir, filename)
+
+    if not os.path.exists(os.path.join(outputDir, trackingsubDir)):
+        os.mkdir(os.path.join(outputDir, trackingsubDir))
+
+    tfmMat = vtk.vtkMatrix4x4()
+    transformNode.GetMatrixTransformToParent(tfmMat)
+
+    writeTRA(filename, volSize, tfmMat)
+
+    slicer.mrmlScene.RemoveNode(transformNode)
+
+
+def writeTRA(filename: str, volSize: list[float], transform: vtk.vtkMatrix4x4):
+    # Slicer 2 Autoscoper Transform
+    # https://github.com/BrownBiomechanics/Autoscoper/issues/280
+    transform.SetElement(1, 1, -transform.GetElement(1, 1))  # Flip Y
+    transform.SetElement(2, 2, -transform.GetElement(2, 2))  # Flip Z
+
+    transform.SetElement(0, 3, transform.GetElement(0, 3) - volSize[0])  # Offset X
+
+    # Write TRA
+    rowwise = []
+    for i in range(4):  # Row
+        for j in range(4):  # Col
+            rowwise.append(str(transform.GetElement(i, j)))
+
+    with open(filename, "w+") as f:
+        f.write(",".join(rowwise))
+
+
 def writeTemporyFile(filename: str, data: vtk.vtkImageData) -> str:
     """
     Writes a temporary file to the slicer temp directory

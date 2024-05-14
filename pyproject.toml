@@ -32,6 +32,8 @@ extend-ignore = [
     "PIE790",  # unnecessary-pass
     "PLR0915", # too-many-statements
     "EXE001",  # Allow use of shebang at top of file. Needed for Scripted CLI
+    "PLR0913", # Too many arguments to function call
+    "PLR0912"  # Too many branches
 ]
 target-version = "py39"
 line-length = 120
