@@ -426,34 +426,36 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         This function creates partial volumes for each segment in the segmentation node for the selected volume node.
         """
-        volumeNode = self.ui.volumeSelector.currentNode()
-        mainOutputDir = self.ui.mainOutputSelector.currentPath
-        tiffSubDir = self.ui.tiffSubDir.text
-        tfmSubDir = self.ui.tfmSubDir.text
-        segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
-        if not self.logic.validateInputs(
-            volumeNode=volumeNode,
-            segmentationNode=segmentationNode,
-            mainOutputDir=mainOutputDir,
-            volumeSubDir=tiffSubDir,
-            transformSubDir=tfmSubDir,
-        ):
-            raise ValueError("Invalid inputs")
-            return
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            volumeNode = self.ui.volumeSelector.currentNode()
+            mainOutputDir = self.ui.mainOutputSelector.currentPath
+            tiffSubDir = self.ui.tiffSubDir.text
+            tfmSubDir = self.ui.tfmSubDir.text
+            segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
+            if not self.logic.validateInputs(
+                volumeNode=volumeNode,
+                segmentationNode=segmentationNode,
+                mainOutputDir=mainOutputDir,
+                volumeSubDir=tiffSubDir,
+                transformSubDir=tfmSubDir,
+            ):
+                raise ValueError("Invalid inputs")
+                return
 
-        self.logic.createPathsIfNotExists(
-            mainOutputDir, os.path.join(mainOutputDir, tiffSubDir), os.path.join(mainOutputDir, tfmSubDir)
-        )
-        self.ui.progressBar.setValue(0)
-        self.ui.progressBar.setMaximum(100)
-        self.logic.saveSubVolumesFromSegmentation(
-            volumeNode,
-            segmentationNode,
-            mainOutputDir,
-            volumeSubDir=tiffSubDir,
-            transformSubDir=tfmSubDir,
-            progressCallback=self.updateProgressBar,
-        )
+            self.logic.createPathsIfNotExists(
+                mainOutputDir, os.path.join(mainOutputDir, tiffSubDir), os.path.join(mainOutputDir, tfmSubDir)
+            )
+            self.ui.progressBar.setValue(0)
+            self.ui.progressBar.setMaximum(100)
+            self.logic.saveSubVolumesFromSegmentation(
+                volumeNode,
+                segmentationNode,
+                mainOutputDir,
+                volumeSubDir=tiffSubDir,
+                transformSubDir=tfmSubDir,
+                progressCallback=self.updateProgressBar,
+            )
+        slicer.util.messageBox("Success!")
 
     def onGenerateVRG(self):
         """
@@ -461,261 +463,267 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         generates a VRG file for each optimized camera.
         """
 
-        self.updateProgressBar(0)
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            self.updateProgressBar(0)
 
-        # Set up and validate inputs
-        volumeNode = self.ui.volumeSelector.currentNode()
-        mainOutputDir = self.ui.mainOutputSelector.currentPath
-        width = self.ui.vrgRes_width.value
-        height = self.ui.vrgRes_height.value
-        nPossibleCameras = self.ui.posCamSpin.value
-        nOptimizedCameras = self.ui.optCamSpin.value
-        tmpDir = self.ui.vrgTempDir.text
-        tfmPath = self.ui.tfmSubDir.text
-        cameraSubDir = self.ui.cameraSubDir.text
-        vrgSubDir = self.ui.vrgSubDir.text
-        if not self.logic.validateInputs(
-            volumeNode=volumeNode,
-            mainOutputDir=mainOutputDir,
-            width=width,
-            height=height,
-            nPossibleCameras=nPossibleCameras,
-            nOptimizedCameras=nOptimizedCameras,
-            tmpDir=tmpDir,
-            tfmPath=tfmPath,
-            cameraSubDir=cameraSubDir,
-            vrgSubDir=vrgSubDir,
-        ):
-            raise ValueError("Invalid inputs")
-            return
-        if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
-            raise ValueError("Invalid paths")
-            return
-        if nPossibleCameras < nOptimizedCameras:
-            logging.error("Failed to generate VRG: more optimized cameras than possible cameras")
-            return
+            # Set up and validate inputs
+            volumeNode = self.ui.volumeSelector.currentNode()
+            mainOutputDir = self.ui.mainOutputSelector.currentPath
+            width = self.ui.vrgRes_width.value
+            height = self.ui.vrgRes_height.value
+            nPossibleCameras = self.ui.posCamSpin.value
+            nOptimizedCameras = self.ui.optCamSpin.value
+            tmpDir = self.ui.vrgTempDir.text
+            tfmPath = self.ui.tfmSubDir.text
+            cameraSubDir = self.ui.cameraSubDir.text
+            vrgSubDir = self.ui.vrgSubDir.text
+            if not self.logic.validateInputs(
+                volumeNode=volumeNode,
+                mainOutputDir=mainOutputDir,
+                width=width,
+                height=height,
+                nPossibleCameras=nPossibleCameras,
+                nOptimizedCameras=nOptimizedCameras,
+                tmpDir=tmpDir,
+                tfmPath=tfmPath,
+                cameraSubDir=cameraSubDir,
+                vrgSubDir=vrgSubDir,
+            ):
+                raise ValueError("Invalid inputs")
+                return
+            if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
+                raise ValueError("Invalid paths")
+                return
+            if nPossibleCameras < nOptimizedCameras:
+                raise Exception("Failed to generate VRG: more optimized cameras than possible cameras")
+                return
 
-        # center the volume
-        self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, tfmPath))
-        if not self.logic.IsSequenceVolume(volumeNode):
-            volumeNode.AddCenteringTransform()
-            tfmNode = slicer.util.getNode(f"{volumeNode.GetName()} centering transform")
-            volumeNode.HardenTransform()
-            volumeNode.SetAndObserveTransformNodeID(None)
-            tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
-            tfmNode.Inverse()
-            slicer.util.saveNode(tfmNode, tfmPath)
-            slicer.mrmlScene.RemoveNode(tfmNode)
-        else:
-            # Just export the first frame
-            currentNode, _ = self.logic.getItemInSequence(volumeNode, 0)
-            currentNode.AddCenteringTransform()
-            tfmNode = currentNode.GetParentTransformNode()
-            currentNode.HardenTransform()
-            currentNode.SetAndObserveTransformNodeID(None)
-            tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
-            tfmNode.Inverse()
-            slicer.util.saveNode(tfmNode, tfmPath)
-            slicer.mrmlScene.RemoveNode(tfmNode)
-
-            # Harden and remove the transform from the sequence
-            for i in range(1, volumeNode.GetNumberOfDataNodes()):
-                currentNode, _ = self.logic.getItemInSequence(volumeNode, i)
+            # center the volume
+            self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, tfmPath))
+            if not self.logic.IsSequenceVolume(volumeNode):
+                volumeNode.AddCenteringTransform()
+                tfmNode = slicer.util.getNode(f"{volumeNode.GetName()} centering transform")
+                volumeNode.HardenTransform()
+                volumeNode.SetAndObserveTransformNodeID(None)
+                tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+                tfmNode.Inverse()
+                slicer.util.saveNode(tfmNode, tfmPath)
+                slicer.mrmlScene.RemoveNode(tfmNode)
+            else:
+                # Just export the first frame
+                currentNode, _ = self.logic.getItemInSequence(volumeNode, 0)
                 currentNode.AddCenteringTransform()
                 tfmNode = currentNode.GetParentTransformNode()
                 currentNode.HardenTransform()
                 currentNode.SetAndObserveTransformNodeID(None)
+                tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+                tfmNode.Inverse()
+                slicer.util.saveNode(tfmNode, tfmPath)
                 slicer.mrmlScene.RemoveNode(tfmNode)
 
-        numFrames = 1
-        currentNode = volumeNode
-        curName = volumeNode.GetName()
-        if self.logic.IsSequenceVolume(currentNode):
-            numFrames = volumeNode.GetNumberOfDataNodes()
-            currentNode, curName = self.logic.getItemInSequence(volumeNode, 0)
-        bounds = [0] * 6
-        currentNode.GetBounds(bounds)
+                # Harden and remove the transform from the sequence
+                for i in range(1, volumeNode.GetNumberOfDataNodes()):
+                    currentNode, _ = self.logic.getItemInSequence(volumeNode, i)
+                    currentNode.AddCenteringTransform()
+                    tfmNode = currentNode.GetParentTransformNode()
+                    currentNode.HardenTransform()
+                    currentNode.SetAndObserveTransformNodeID(None)
+                    slicer.mrmlScene.RemoveNode(tfmNode)
 
-        # Generate all possible camera positions
-        camOffset = self.ui.camOffSetSpin.value
-        cameras = RadiographGeneration.generateNCameras(
-            nPossibleCameras, bounds, camOffset, [width, height], self.ui.camDebugCheckbox.isChecked()
-        )
+            numFrames = 1
+            currentNode = volumeNode
+            curName = volumeNode.GetName()
+            if self.logic.IsSequenceVolume(currentNode):
+                numFrames = volumeNode.GetNumberOfDataNodes()
+                currentNode, curName = self.logic.getItemInSequence(volumeNode, 0)
+            bounds = [0] * 6
+            currentNode.GetBounds(bounds)
 
-        # TODO: Validate that both the tmp directory and the camera calibration directory are empty before starting
-
-        cameraDir = os.path.join(mainOutputDir, cameraSubDir)
-        if not os.path.exists(cameraDir):
-            os.mkdir(cameraDir)
-        for cam in cameras:  # Generate Camera Calib files
-            camFName = os.path.join(cameraDir, f"cam{cam.id}.json")
-            IO.generateCameraCalibrationFile(cam, camFName)
-
-        self.updateProgressBar(10)
-
-        # Generate initial VRG for each camera
-        for i in range(numFrames):
-            filename = self.logic.cleanFilename(curName, i) if not self.ui.idxOnly.isChecked() else i
-            self.logic.generateVRGForCameras(
-                os.path.join(mainOutputDir, cameraSubDir),
-                currentNode,
-                os.path.join(mainOutputDir, tmpDir),
-                [width, height],
-                filename=filename,
+            # Generate all possible camera positions
+            camOffset = self.ui.camOffSetSpin.value
+            cameras = RadiographGeneration.generateNCameras(
+                nPossibleCameras, bounds, camOffset, [width, height], self.ui.camDebugCheckbox.isChecked()
             )
-            progress = (i + 1) / numFrames * 40 + 10
-            self.updateProgressBar(progress)
 
-            if self.logic.IsSequenceVolume(volumeNode):
-                currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
+            # TODO: Validate that both the tmp directory and the camera calibration directory are empty before starting
 
-        # Optimize the camera positions
-        bestCameras = RadiographGeneration.optimizeCameras(
-            cameras, os.path.join(mainOutputDir, tmpDir), nOptimizedCameras, progressCallback=self.updateProgressBar
-        )
+            cameraDir = os.path.join(mainOutputDir, cameraSubDir)
+            if not os.path.exists(cameraDir):
+                os.mkdir(cameraDir)
+            for cam in cameras:  # Generate Camera Calib files
+                camFName = os.path.join(cameraDir, f"cam{cam.id}.json")
+                IO.generateCameraCalibrationFile(cam, camFName)
 
-        shutil.rmtree(os.path.join(mainOutputDir, cameraSubDir))
+            self.updateProgressBar(10)
 
-        # Move the optimized VRGs to the final directory and generate the camera calibration files
-        self.logic.generateCameraCalibrationFiles(
-            bestCameras,
-            os.path.join(mainOutputDir, tmpDir),
-            os.path.join(mainOutputDir, vrgSubDir),
-            os.path.join(mainOutputDir, cameraSubDir),
-            progressCallback=self.updateProgressBar,
-        )
+            # Generate initial VRG for each camera
+            for i in range(numFrames):
+                filename = self.logic.cleanFilename(curName, i) if not self.ui.idxOnly.isChecked() else i
+                self.logic.generateVRGForCameras(
+                    os.path.join(mainOutputDir, cameraSubDir),
+                    currentNode,
+                    os.path.join(mainOutputDir, tmpDir),
+                    [width, height],
+                    filename=filename,
+                )
+                progress = (i + 1) / numFrames * 40 + 10
+                self.updateProgressBar(progress)
 
-        # Clean Up
-        if self.ui.removeVrgTmp.isChecked():
-            shutil.rmtree(os.path.join(mainOutputDir, tmpDir))
+                if self.logic.IsSequenceVolume(volumeNode):
+                    currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
+
+            # Optimize the camera positions
+            bestCameras = RadiographGeneration.optimizeCameras(
+                cameras, os.path.join(mainOutputDir, tmpDir), nOptimizedCameras, progressCallback=self.updateProgressBar
+            )
+
+            shutil.rmtree(os.path.join(mainOutputDir, cameraSubDir))
+
+            # Move the optimized VRGs to the final directory and generate the camera calibration files
+            self.logic.generateCameraCalibrationFiles(
+                bestCameras,
+                os.path.join(mainOutputDir, tmpDir),
+                os.path.join(mainOutputDir, vrgSubDir),
+                os.path.join(mainOutputDir, cameraSubDir),
+                progressCallback=self.updateProgressBar,
+            )
+
+            # Clean Up
+            if self.ui.removeVrgTmp.isChecked():
+                shutil.rmtree(os.path.join(mainOutputDir, tmpDir))
+
+        slicer.util.messageBox("Success!")
 
     def onGenerateConfig(self):
         """
         Generates a complete config file (including all partial volumes, radiographs,
         and camera calibration files) for Autoscoper.
         """
-        volumeNode = self.ui.volumeSelector.currentNode()
-        mainOutputDir = self.ui.mainOutputSelector.currentPath
-        trialName = self.ui.trialName.text
-        width = self.ui.vrgRes_width.value
-        height = self.ui.vrgRes_height.value
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            volumeNode = self.ui.volumeSelector.currentNode()
+            mainOutputDir = self.ui.mainOutputSelector.currentPath
+            trialName = self.ui.trialName.text
+            width = self.ui.vrgRes_width.value
+            height = self.ui.vrgRes_height.value
 
-        tiffSubDir = self.ui.tiffSubDir.text
-        vrgSubDir = self.ui.vrgSubDir.text
-        calibrationSubDir = self.ui.cameraSubDir.text
+            tiffSubDir = self.ui.tiffSubDir.text
+            vrgSubDir = self.ui.vrgSubDir.text
+            calibrationSubDir = self.ui.cameraSubDir.text
 
-        # Validate the inputs
-        if not self.logic.validateInputs(
-            volumeNode=volumeNode,
-            mainOutputDir=mainOutputDir,
-            trialName=trialName,
-            width=width,
-            height=height,
-            volumeSubDir=tiffSubDir,
-            vrgSubDir=vrgSubDir,
-            calibrationSubDir=calibrationSubDir,
-        ):
-            raise ValueError("Invalid inputs")
-            return
-        if not self.logic.validatePaths(
-            mainOutputDir=mainOutputDir,
-            tiffDir=os.path.join(mainOutputDir, tiffSubDir),
-            vrgDir=os.path.join(mainOutputDir, vrgSubDir),
-            calibDir=os.path.join(mainOutputDir, calibrationSubDir),
-        ):
-            raise ValueError("Invalid paths")
-            return
+            # Validate the inputs
+            if not self.logic.validateInputs(
+                volumeNode=volumeNode,
+                mainOutputDir=mainOutputDir,
+                trialName=trialName,
+                width=width,
+                height=height,
+                volumeSubDir=tiffSubDir,
+                vrgSubDir=vrgSubDir,
+                calibrationSubDir=calibrationSubDir,
+            ):
+                raise ValueError("Invalid inputs")
+                return
+            if not self.logic.validatePaths(
+                mainOutputDir=mainOutputDir,
+                tiffDir=os.path.join(mainOutputDir, tiffSubDir),
+                vrgDir=os.path.join(mainOutputDir, vrgSubDir),
+                calibDir=os.path.join(mainOutputDir, calibrationSubDir),
+            ):
+                raise ValueError("Invalid paths")
+                return
 
-        optimizationOffsets = [
-            self.ui.optOffX.value,
-            self.ui.optOffY.value,
-            self.ui.optOffZ.value,
-            self.ui.optOffYaw.value,
-            self.ui.optOffPitch.value,
-            self.ui.optOffRoll.value,
-        ]
-        volumeFlip = [
-            int(self.ui.flipX.isChecked()),
-            int(self.ui.flipY.isChecked()),
-            int(self.ui.flipZ.isChecked()),
-        ]
+            optimizationOffsets = [
+                self.ui.optOffX.value,
+                self.ui.optOffY.value,
+                self.ui.optOffZ.value,
+                self.ui.optOffYaw.value,
+                self.ui.optOffPitch.value,
+                self.ui.optOffRoll.value,
+            ]
+            volumeFlip = [
+                int(self.ui.flipX.isChecked()),
+                int(self.ui.flipY.isChecked()),
+                int(self.ui.flipZ.isChecked()),
+            ]
 
-        voxel_spacing = self.logic.GetVolumeSpacing(volumeNode)
-        # generate the config file
-        configFilePath = IO.generateConfigFile(
-            mainOutputDir,
-            [tiffSubDir, vrgSubDir, calibrationSubDir],
-            trialName,
-            volumeFlip=volumeFlip,
-            voxelSize=voxel_spacing,
-            renderResolution=[int(width / 2), int(height / 2)],
-            optimizationOffsets=optimizationOffsets,
-        )
+            voxel_spacing = self.logic.GetVolumeSpacing(volumeNode)
+            # generate the config file
+            configFilePath = IO.generateConfigFile(
+                mainOutputDir,
+                [tiffSubDir, vrgSubDir, calibrationSubDir],
+                trialName,
+                volumeFlip=volumeFlip,
+                voxelSize=voxel_spacing,
+                renderResolution=[int(width / 2), int(height / 2)],
+                optimizationOffsets=optimizationOffsets,
+            )
 
-        self.ui.configSelector.setCurrentPath(configFilePath)
+            self.ui.configSelector.setCurrentPath(configFilePath)
+        slicer.util.messageBox("Success!")
 
     def onSegmentation(self):
         """
         Either launches the automatic segmentation process or loads in a set of segmentations from a directory
         """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            self.ui.progressBar.setValue(0)
+            self.ui.progressBar.setMaximum(100)
 
-        self.ui.progressBar.setValue(0)
-        self.ui.progressBar.setMaximum(100)
+            volumeNode = self.ui.volumeSelector.currentNode()
 
-        volumeNode = self.ui.volumeSelector.currentNode()
+            if not self.logic.validateInputs(voluemNode=volumeNode):
+                raise ValueError("Invalid inputs")
+                return
 
-        if not self.logic.validateInputs(voluemNode=volumeNode):
-            raise ValueError("Invalid inputs")
-            return
+            if self.ui.segGen_autoRadioButton.isChecked():
+                currentVolumeNode = volumeNode
+                numFrames = 1
+                if self.logic.IsSequenceVolume(volumeNode):
+                    numFrames = volumeNode.GetNumberOfDataNodes()
+                    currentVolumeNode = self.logic.getItemInSequence(volumeNode, 0)
+                    segmentationSequenceNode = self.logic.createSequenceNodeInBrowser(
+                        nodename=f"{volumeNode.GetName()}_Segmentation", sequenceNode=volumeNode
+                    )
+                for i in range(numFrames):
+                    self.logic.cleanFilename(currentVolumeNode.GetName(), i)
+                    segmentationNode = SubVolumeExtraction.automaticSegmentation(
+                        currentVolumeNode,
+                        self.ui.segGen_ThresholdSpinBox.value,
+                        self.ui.segGen_marginSizeSpin.value,
+                    )
+                    progress = (i + 1) / numFrames * 100
+                    self.ui.progressBar.setValue(progress)
+                    if self.logic.IsSequenceVolume(volumeNode):
+                        segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
+                        slicer.mrmlScene.RemoveNode(segmentationNode)
+                        currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
 
-        if self.ui.segGen_autoRadioButton.isChecked():
-            currentVolumeNode = volumeNode
-            numFrames = 1
-            if self.logic.IsSequenceVolume(volumeNode):
-                numFrames = volumeNode.GetNumberOfDataNodes()
-                currentVolumeNode = self.logic.getItemInSequence(volumeNode, 0)
-                segmentationSequenceNode = self.logic.createSequenceNodeInBrowser(
-                    nodename=f"{volumeNode.GetName()}_Segmentation", sequenceNode=volumeNode
-                )
-            for i in range(numFrames):
-                self.logic.cleanFilename(currentVolumeNode.GetName(), i)
                 segmentationNode = SubVolumeExtraction.automaticSegmentation(
-                    currentVolumeNode,
+                    volumeNode,
                     self.ui.segGen_ThresholdSpinBox.value,
                     self.ui.segGen_marginSizeSpin.value,
+                    progressCallback=self.updateProgressBar,
                 )
-                progress = (i + 1) / numFrames * 100
-                self.ui.progressBar.setValue(progress)
-                if self.logic.IsSequenceVolume(volumeNode):
-                    segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
-                    slicer.mrmlScene.RemoveNode(segmentationNode)
-                    currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
-
-            segmentationNode = SubVolumeExtraction.automaticSegmentation(
-                volumeNode,
-                self.ui.segGen_ThresholdSpinBox.value,
-                self.ui.segGen_marginSizeSpin.value,
-                progressCallback=self.updateProgressBar,
-            )
-        elif self.ui.segGen_fileRadioButton.isChecked():
-            segmentationFileDir = self.ui.segGen_lineEdit.currentPath
-            if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
-                raise ValueError("Invalid paths")
+            elif self.ui.segGen_fileRadioButton.isChecked():
+                segmentationFileDir = self.ui.segGen_lineEdit.currentPath
+                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
+                    raise ValueError("Invalid paths")
+                    return
+                segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
+                segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+                segmentationNode.CreateDefaultDisplayNodes()
+                for idx, file in enumerate(segmentationFiles):
+                    returnedNode = IO.loadSegmentation(segmentationNode, file)
+                    if returnedNode:
+                        # get the segment from the returned node and add it to the segmentation node
+                        segment = returnedNode.GetSegmentation().GetNthSegment(0)
+                        segmentationNode.GetSegmentation().AddSegment(segment)
+                        slicer.mrmlScene.RemoveNode(returnedNode)
+                    self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
+            else:  # Should never happen but just in case
+                raise Exception("No segmentation method selected")
                 return
-            segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
-            segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-            segmentationNode.CreateDefaultDisplayNodes()
-            for idx, file in enumerate(segmentationFiles):
-                returnedNode = IO.loadSegmentation(segmentationNode, file)
-                if returnedNode:
-                    # get the segment from the returned node and add it to the segmentation node
-                    segment = returnedNode.GetSegmentation().GetNthSegment(0)
-                    segmentationNode.GetSegmentation().AddSegment(segment)
-                    slicer.mrmlScene.RemoveNode(returnedNode)
-                self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
-        else:  # Should never happen but just in case
-            logging.error("No segmentation method selected")
-            return
+        slicer.util.messageBox("Success!")
 
     def updateProgressBar(self, value):
         """
@@ -725,100 +733,108 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.app.processEvents()
 
     def onLoadPV(self):
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            mainOutputDir = self.ui.mainOutputSelector.currentPath
+            volumeSubDir = self.ui.tiffSubDir.text
+            transformSubDir = self.ui.tfmSubDir.text
 
-        mainOutputDir = self.ui.mainOutputSelector.currentPath
-        volumeSubDir = self.ui.tiffSubDir.text
-        transformSubDir = self.ui.tfmSubDir.text
+            vols = glob.glob(os.path.join(mainOutputDir, volumeSubDir, "*.tif"))
+            tfms = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*.tfm"))
 
-        vols = glob.glob(os.path.join(mainOutputDir, volumeSubDir, "*.tif"))
-        tfms = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*.tfm"))
-
-        if len(vols) == 0:
-            logging.error("No data found")
-            return
-
-        # Match the volumes and transforms
-        paired = {}
-        for vol in vols:
-            volName = os.path.basename(vol)
-            for tfm in tfms:
-                tfmName = os.path.basename(tfm)
-                if volName.split(".")[0] == tfmName.split(".")[0]:
-                    paired[vol] = tfm
-                    break
-            if vol not in paired:
-                logging.error(f"No transform found for {vol}")
+            if len(vols) == 0:
+                raise Exception("No data found")
                 return
 
-        for vol, tfm in paired.items():
-            volumeNode = slicer.util.loadVolume(vol)
-            transformNode = slicer.util.loadTransform(tfm)
-            volumeNode.SetAndObserveTransformNodeID(transformNode.GetID())
-            self.logic.showVolumeIn3D(volumeNode)
+            # Match the volumes and transforms
+            paired = {}
+            for vol in vols:
+                volName = os.path.basename(vol)
+                for tfm in tfms:
+                    tfmName = os.path.basename(tfm)
+                    if volName.split(".")[0] == tfmName.split(".")[0]:
+                        paired[vol] = tfm
+                        break
+                if vol not in paired:
+                    raise Exception(f"No transform found for {vol}")
+                    return
+
+            for vol, tfm in paired.items():
+                volumeNode = slicer.util.loadVolume(vol)
+                transformNode = slicer.util.loadTransform(tfm)
+                volumeNode.SetAndObserveTransformNodeID(transformNode.GetID())
+                self.logic.showVolumeIn3D(volumeNode)
+        slicer.util.messageBox("Success!")
 
     def onManualVRGGen(self):
-        markupsNode = self.ui.mVRG_markupSelector.currentNode()
-        volumeNode = self.ui.volumeSelector.currentNode()
-        mainOutputDir = self.ui.mainOutputSelector.currentPath
-        viewAngle = self.ui.mVRG_viewAngleSpin.value
-        clippingRange = (self.ui.mVRG_ClippingRangeSlider.minimumValue, self.ui.mVRG_ClippingRangeSlider.maximumValue)
-        width = self.ui.vrgRes_width.value
-        height = self.ui.vrgRes_height.value
-        vrgDir = self.ui.vrgSubDir.text
-        cameraDir = self.ui.cameraSubDir.text
-        if not self.logic.validateInputs(
-            markupsNode=markupsNode,
-            volumeNode=volumeNode,
-            mainOutputDir=mainOutputDir,
-            viewAngle=viewAngle,
-            clippingRange=clippingRange,
-            width=width,
-            height=height,
-            vrgDir=vrgDir,
-            cameraDir=cameraDir,
-        ):
-            logging.error("Failed to generate VRG: invalid inputs")
-            return
-        if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
-            logging.error("Failed to generate VRG: invalid output directory")
-            return
-        self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, vrgDir), os.path.join(mainOutputDir, cameraDir))
-
-        if self.logic.vrgManualCameras is None:
-            self.onMarkupNodeChanged(markupsNode)  # create the cameras
-
-        if not self.logic.IsVolumeCentered(volumeNode):
-            logging.warning("Volume is not centered at the origin. This may cause issues with Autoscoper.")
-
-        for cam in self.logic.vrgManualCameras:
-            IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.json"))
-
-        self.updateProgressBar(0)
-
-        numFrames = 1
-        currentNode = volumeNode
-        curName = currentNode.GetName()
-        if self.logic.IsSequenceVolume(currentNode):
-            numFrames = volumeNode.GetNumberOfDataNodes()
-            currentNode, curName = self.logic.getItemInSequence(volumeNode, 0)
-
-        for i in range(numFrames):
-            filename = self.logic.cleanFilename(curName, i)
-            self.logic.generateVRGForCameras(
-                os.path.join(mainOutputDir, cameraDir),
-                currentNode,
-                os.path.join(mainOutputDir, vrgDir),
-                [width, height],
-                filename=filename,
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            markupsNode = self.ui.mVRG_markupSelector.currentNode()
+            volumeNode = self.ui.volumeSelector.currentNode()
+            mainOutputDir = self.ui.mainOutputSelector.currentPath
+            viewAngle = self.ui.mVRG_viewAngleSpin.value
+            clippingRange = (
+                self.ui.mVRG_ClippingRangeSlider.minimumValue,
+                self.ui.mVRG_ClippingRangeSlider.maximumValue,
+            )
+            width = self.ui.vrgRes_width.value
+            height = self.ui.vrgRes_height.value
+            vrgDir = self.ui.vrgSubDir.text
+            cameraDir = self.ui.cameraSubDir.text
+            if not self.logic.validateInputs(
+                markupsNode=markupsNode,
+                volumeNode=volumeNode,
+                mainOutputDir=mainOutputDir,
+                viewAngle=viewAngle,
+                clippingRange=clippingRange,
+                width=width,
+                height=height,
+                vrgDir=vrgDir,
+                cameraDir=cameraDir,
+            ):
+                raise Exception("Failed to generate VRG: invalid inputs")
+                return
+            if not self.logic.validatePaths(mainOutputDir=mainOutputDir):
+                raise Exception("Failed to generate VRG: invalid output directory")
+                return
+            self.logic.createPathsIfNotExists(
+                os.path.join(mainOutputDir, vrgDir), os.path.join(mainOutputDir, cameraDir)
             )
 
-            progress = ((i + 1) / numFrames) * 100
-            self.updateProgressBar(progress)
+            if self.logic.vrgManualCameras is None:
+                self.onMarkupNodeChanged(markupsNode)  # create the cameras
 
-            if self.logic.IsSequenceVolume(volumeNode):
-                currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
+            if not self.logic.IsVolumeCentered(volumeNode):
+                logging.warning("Volume is not centered at the origin. This may cause issues with Autoscoper.")
 
-        self.updateProgressBar(100)
+            for cam in self.logic.vrgManualCameras:
+                IO.generateCameraCalibrationFile(cam, os.path.join(mainOutputDir, cameraDir, f"cam{cam.id}.json"))
+
+            self.updateProgressBar(0)
+
+            numFrames = 1
+            currentNode = volumeNode
+            curName = currentNode.GetName()
+            if self.logic.IsSequenceVolume(currentNode):
+                numFrames = volumeNode.GetNumberOfDataNodes()
+                currentNode, curName = self.logic.getItemInSequence(volumeNode, 0)
+
+            for i in range(numFrames):
+                filename = self.logic.cleanFilename(curName, i)
+                self.logic.generateVRGForCameras(
+                    os.path.join(mainOutputDir, cameraDir),
+                    currentNode,
+                    os.path.join(mainOutputDir, vrgDir),
+                    [width, height],
+                    filename=filename,
+                )
+
+                progress = ((i + 1) / numFrames) * 100
+                self.updateProgressBar(progress)
+
+                if self.logic.IsSequenceVolume(volumeNode):
+                    currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
+
+            self.updateProgressBar(100)
+        slicer.util.messageBox("Success!")
 
     def onMarkupNodeChanged(self, node):
         if node is None:
@@ -1308,11 +1324,11 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :return: item at the specified index
         """
         if not AutoscoperMLogic.IsSequenceVolume(sequenceNode):
-            logging.error("[AutoscoperM.logic.getItemInSequence] sequenceNode must be a sequence node")
+            raise Exception("[AutoscoperM.logic.getItemInSequence] sequenceNode must be a sequence node")
             return None
 
         if idx >= sequenceNode.GetNumberOfDataNodes():
-            logging.error(f"[AutoscoperM.logic.getItemInSequence] index {idx} is out of range")
+            raise Exception(f"[AutoscoperM.logic.getItemInSequence] index {idx} is out of range")
             return None
 
         browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
@@ -1329,8 +1345,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :return: next item in the sequence
         """
         if not AutoscoperMLogic.IsSequenceVolume(sequenceNode):
-            logging.error("[AutoscoperM.logic.getNextItemInSequence] sequenceNode must be a sequence node")
-            return None
+            raise Exception("[AutoscoperM.logic.getNextItemInSequence] sequenceNode must be a sequence node")
 
         browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
         browserNode.SelectNextItem()
@@ -1345,8 +1360,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     @staticmethod
     def createSequenceNodeInBrowser(nodename, sequenceNode):
         if not AutoscoperMLogic.IsSequenceVolume(sequenceNode):
-            logging.error("[AutoscoperMLogic.createSequenceNodeInBrowser] sequenceNode must be a sequence node")
-            return None
+            raise Exception("[AutoscoperMLogic.createSequenceNodeInBrowser] sequenceNode must be a sequence node")
 
         browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(sequenceNode)
         newSeqenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", nodename)
