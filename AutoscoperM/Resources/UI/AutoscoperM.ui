@@ -572,6 +572,23 @@
           <bool>true</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="VRGGen_autoPossibleCameraRadioButton">
+            <property name="text">
+             <string>Automatic Possible Cameras Positioning</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="VRGGen_batchLoadPossibleCameraRadioButton">
+            <property name="text">
+             <string>Batch Load from File</string>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="2">
            <widget class="QSpinBox" name="camOffSetSpin">
             <property name="minimum">
@@ -586,13 +603,13 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="label_17">
+           <widget class="QLabel" name="VRGGen_possibleCameraOffsetLabel">
             <property name="text">
              <string>Camera Offset:</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_4">
             <property name="text">
              <string># of Optimized Cameras:</string>
@@ -610,7 +627,7 @@
            </widget>
           </item>
           <item row="1" column="0">
-           <widget class="QLabel" name="label_7">
+           <widget class="QLabel" name="VRGGen_numberOfPossibleCamerasLabel">
             <property name="text">
              <string># of Possible Cameras:</string>
             </property>
@@ -635,14 +652,31 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0" colspan="3">
+          <item row="3" column="0">
+           <widget class="QLabel" name="VRGGen_possibleCamerasLabel">
+            <property name="text">
+             <string>Possible Cameras Directory:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="ctkPathLineEdit" name="VRGGen_possibleCamerasPathLineEdit">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="filters">
+             <set>ctkPathLineEdit::Dirs|ctkPathLineEdit::Drives|ctkPathLineEdit::Executable|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="3">
            <widget class="QPushButton" name="vrgGenButton">
             <property name="text">
              <string>Generate VRGs</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1" colspan="2">
+          <item row="4" column="1" colspan="2">
            <widget class="QSpinBox" name="optCamSpin">
             <property name="minimum">
              <number>2</number>
@@ -935,6 +969,24 @@
      <y>323</y>
     </hint>
    </hints>
+  </connection>
+  <connection>
+   <sender>VRGGen_autoPossibleCameraRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>posCamSpin</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+  <connection>
+   <sender>VRGGen_autoPossibleCameraRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>camOffSetSlider</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+  <connection>
+   <sender>VRGGen_batchLoadPossibleCameraRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>VRGGen_possibleCamerasPathLineEdit</receiver>
+   <slot>setEnabled(bool)</slot>
   </connection>
   <connection>
    <sender>AutoscoperM</sender>
