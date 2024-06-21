@@ -502,42 +502,52 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic.createPathsIfNotExists(os.path.join(mainOutputDir, tfmPath))
             if not self.logic.IsSequenceVolume(volumeNode):
                 volumeNode.AddCenteringTransform()
-                tfmNode = slicer.util.getNode(f"{volumeNode.GetName()} centering transform")
-                volumeNode.HardenTransform()
-                volumeNode.SetAndObserveTransformNodeID(None)
-                tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
-                tfmNode.Inverse()
-                slicer.util.saveNode(tfmNode, tfmPath)
-                slicer.mrmlScene.RemoveNode(tfmNode)
+                tfmNode = volumeNode.GetParentTransformNode()
+                if tfmNode is not None:
+                    volumeNode.HardenTransform()
+                    volumeNode.SetAndObserveTransformNodeID(None)
+                    tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+                    tfmNode.Inverse()
+                    slicer.util.saveNode(tfmNode, tfmPath)
             else:
                 # Just export the first frame
-                currentNode, _ = self.logic.getItemInSequence(volumeNode, 0)
-                currentNode.AddCenteringTransform()
-                tfmNode = currentNode.GetParentTransformNode()
-                currentNode.HardenTransform()
-                currentNode.SetAndObserveTransformNodeID(None)
-                tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
-                tfmNode.Inverse()
-                slicer.util.saveNode(tfmNode, tfmPath)
-                slicer.mrmlScene.RemoveNode(tfmNode)
+                proxyNode = self.logic.getItemInSequence(volumeNode, 0)[0]
+                proxyNode.AddCenteringTransform()
+                tfmNode = proxyNode.GetParentTransformNode()
 
-                # Harden and remove the transform from the sequence
-                for i in range(1, volumeNode.GetNumberOfDataNodes()):
-                    currentNode, _ = self.logic.getItemInSequence(volumeNode, i)
+                if tfmNode is not None:
+                    proxyNode.SetAndObserveTransformNodeID(None)
+                    tfmPath = os.path.join(mainOutputDir, tfmPath, "Origin2Dicom.tfm")
+                    tfmNode.Inverse()
+                    slicer.util.saveNode(tfmNode, tfmPath)
+                    tfmNode.Inverse()
+                    slicer.mrmlScene.RemoveNode(tfmNode)
+                    tfmNode = None
+
+                    currentNode = volumeNode.GetNthDataNode(0)
                     currentNode.AddCenteringTransform()
                     tfmNode = currentNode.GetParentTransformNode()
                     currentNode.HardenTransform()
                     currentNode.SetAndObserveTransformNodeID(None)
-                    slicer.mrmlScene.RemoveNode(tfmNode)
+                    volumeNode.SetDataNodeAtValue(currentNode, "0")
+
+                    # Apply to all frames
+                    for i in range(1, volumeNode.GetNumberOfDataNodes()):
+                        currentNode = volumeNode.GetNthDataNode(i)
+                        currentNode.SetAndObserveTransformNodeID(tfmNode.GetID())
+                        currentNode.HardenTransform()
+                        currentNode.SetAndObserveTransformNodeID(None)
+                        volumeNode.SetDataNodeAtValue(currentNode, f"{i}")
 
             numFrames = 1
             currentNode = volumeNode
             curName = volumeNode.GetName()
             if self.logic.IsSequenceVolume(currentNode):
                 numFrames = volumeNode.GetNumberOfDataNodes()
-                currentNode, curName = self.logic.getItemInSequence(volumeNode, 0)
+                currentNode = volumeNode.GetNthDataNode(0)
+                curName = currentNode.GetName()
             bounds = [0] * 6
-            currentNode.GetBounds(bounds)
+            currentNode.GetRASBounds(bounds)
 
             # Generate all possible camera positions
             camOffset = self.ui.camOffSetSpin.value
@@ -570,7 +580,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.updateProgressBar(progress)
 
                 if self.logic.IsSequenceVolume(volumeNode):
-                    currentNode, curName = self.logic.getNextItemInSequence(volumeNode)
+                    currentNode = volumeNode.GetNthDataNode(i)
+                    curName = currentNode.GetName()
 
             # Optimize the camera positions
             bestCameras = RadiographGeneration.optimizeCameras(
@@ -592,15 +603,19 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self.ui.removeVrgTmp.isChecked():
                 shutil.rmtree(os.path.join(mainOutputDir, tmpDir))
 
+            if not self.logic.IsSequenceVolume(volumeNode) and tfmNode is not None:
+                volumeNode.SetAndObserveTransformNodeID(tfmNode.GetID())
+                volumeNode.HardenTransform()
+            elif tfmNode is not None:
+                tfmNode.Inverse()
+                for i in range(0, volumeNode.GetNumberOfDataNodes()):
+                    currentNode = volumeNode.GetNthDataNode(i)
+                    currentNode.SetAndObserveTransformNodeID(tfmNode.GetID())
+                    currentNode.HardenTransform()
+                    currentNode.SetAndObserveTransformNodeID(None)
+                    volumeNode.SetDataNodeAtValue(currentNode, f"{i}")
+            slicer.mrmlScene.RemoveNode(tfmNode)
         slicer.util.messageBox("Success!")
-
-        if not self.logic.IsSequenceVolume(volumeNode):
-            firstNode = volumeNode
-        else:
-            firstNode, _ = self.logic.getItemInSequence(volumeNode, 0)
-        firstNode.SetAndObserveTransformNodeID(tfmNode.GetID())
-        firstNode.HardenTransform()
-        slicer.mrmlScene.RemoveNode(tfmNode)
 
     def onGenerateConfig(self):
         """
@@ -1239,16 +1254,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :param filename: filename of the VRG
         """
         self.createPathsIfNotExists(outputDir)
-        # Apply a thresh of 0 to the volume to remove air from the volume
-        thresholdScalarVolume = slicer.modules.thresholdscalarvolume
-        parameters = {
-            "InputVolume": volumeNode.GetID(),
-            "OutputVolume": volumeNode.GetID(),
-            "ThresholdValue": 0,
-            "ThresholdType": "Below",
-            "Lower": 0,
-        }
-        slicer.cli.runSync(thresholdScalarVolume, None, parameters)
 
         # write a temporary volume to disk
         volumeFileName = "AutoscoperM_VRG_GEN_TEMP.mhd"

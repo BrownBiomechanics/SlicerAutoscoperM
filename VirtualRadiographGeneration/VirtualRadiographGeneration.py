@@ -1,6 +1,5 @@
 #!/usr/bin/env python-real
 
-import concurrent.futures as cf
 import glob
 import json
 import os
@@ -26,9 +25,18 @@ def generateVRG(
     :param height: Height of the output image
     """
 
+    # Zero threshold the image
+    thresholder = vtk.vtkImageThreshold()
+    thresholder.ThresholdByLower(0)
+    thresholder.ReplaceInOn()
+    thresholder.SetInValue(0)
+    thresholder.SetInputData(volumeImageData)
+    thresholder.Update()
+    thresholdedImageData = thresholder.GetOutput()
+
     # find the min and max scalar values
     hist = vtk.vtkImageHistogramStatistics()
-    hist.SetInputData(volumeImageData)
+    hist.SetInputData(thresholdedImageData)
     hist.Update()
     minVal = hist.GetMinimum()
     maxVal = hist.GetMaximum()
@@ -46,7 +54,7 @@ def generateVRG(
 
     # create the volume mapper
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
-    volumeMapper.SetInputData(volumeImageData)
+    volumeMapper.SetInputData(thresholdedImageData)
     volumeMapper.SetBlendModeToComposite()
     volumeMapper.SetBlendModeToComposite()
     volumeMapper.SetUseJittering(False)
@@ -156,13 +164,5 @@ if __name__ == "__main__":
     reader.SetFileName(volumeData)
     reader.Update()
 
-    # generate the virtual radiograph
-    with cf.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                generateVRG, cam, reader.GetOutput(), os.path.join(camDir, outputFileName), outputWidth, outputHeight
-            )
-            for cam, camDir in cameras.items()
-        ]
-        for future in cf.as_completed(futures):
-            future.result()
+    for cam, camDir in cameras.items():
+        generateVRG(cam, reader.GetOutput(), os.path.join(camDir, outputFileName), outputWidth, outputHeight)
