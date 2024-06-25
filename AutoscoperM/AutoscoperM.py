@@ -426,6 +426,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         This function creates partial volumes for each segment in the segmentation node for the selected volume node.
         """
+        message = """Warning! If you are planning on running automatic camera placement
+please ensure that you have run the VRG gen before generating partial
+volumes. If not, the exported TRA files will not line up within Autoscoper.
+Please click Ok if you wish to continue with partial volume generation.
+Please click Cancel if you wish to stop partial volume generation.
+        """
+        if not slicer.util.confirmOkCancelDisplay(text=message):
+            return
         with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
             volumeNode = self.ui.volumeSelector.currentNode()
             mainOutputDir = self.ui.mainOutputSelector.currentPath
