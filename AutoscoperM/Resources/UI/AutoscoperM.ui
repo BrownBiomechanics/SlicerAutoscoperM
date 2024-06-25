@@ -445,6 +445,57 @@
         </widget>
        </item>
        <item>
+        <widget class="ctkCollapsibleButton" name="TiffGen">
+         <property name="text">
+          <string>Partial Volume Generation</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="1" column="1" colspan="2">
+           <widget class="qMRMLNodeComboBox" name="pv_SegNodeComboBox">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="nodeTypes">
+             <stringlist notr="true">
+              <string>vtkMRMLSegmentationNode</string>
+             </stringlist>
+            </property>
+            <property name="hideChildNodeTypes">
+             <stringlist notr="true"/>
+            </property>
+            <property name="interactionNodeSingletonTag">
+             <string notr="true"/>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_9">
+            <property name="text">
+             <string>Segmentation Node:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="3">
+           <widget class="QPushButton" name="tiffGenButton">
+            <property name="text">
+             <string>Generate Partial Volumes</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="3">
+           <widget class="QPushButton" name="loadPVButton">
+            <property name="text">
+             <string>Load Partial Volumes</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="ctkCollapsibleButton" name="CollapsibleButton_2">
          <property name="text">
           <string>VRG Generation - Manual Camera Placement</string>
@@ -649,57 +700,6 @@
             </property>
             <property name="value">
              <number>2</number>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="ctkCollapsibleButton" name="TiffGen">
-         <property name="text">
-          <string>Partial Volume Generation</string>
-         </property>
-         <property name="checked">
-          <bool>false</bool>
-         </property>
-         <layout class="QGridLayout" name="gridLayout">
-          <item row="1" column="1" colspan="2">
-           <widget class="qMRMLNodeComboBox" name="pv_SegNodeComboBox">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="nodeTypes">
-             <stringlist notr="true">
-              <string>vtkMRMLSegmentationNode</string>
-             </stringlist>
-            </property>
-            <property name="hideChildNodeTypes">
-             <stringlist notr="true"/>
-            </property>
-            <property name="interactionNodeSingletonTag">
-             <string notr="true"/>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_9">
-            <property name="text">
-             <string>Segmentation Node:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0" colspan="3">
-           <widget class="QPushButton" name="tiffGenButton">
-            <property name="text">
-             <string>Generate Partial Volumes</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="3">
-           <widget class="QPushButton" name="loadPVButton">
-            <property name="text">
-             <string>Load Partial Volumes</string>
             </property>
            </widget>
           </item>
