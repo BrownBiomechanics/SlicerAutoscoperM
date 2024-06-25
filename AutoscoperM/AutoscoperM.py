@@ -10,6 +10,7 @@ from typing import Optional, Union
 import qt
 import slicer
 import vtk
+import vtkAddon
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
@@ -1070,25 +1071,31 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             IO.writeTFMFile(filename, spacing, origin)
             self.showVolumeIn3D(segmentVolume)
 
-            bounds = [0] * 6
-            segmentVolume.GetRASBounds(bounds)
-            segmentVolumeSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
-
             # Write TRA
             tfm = vtk.vtkMatrix4x4()
             tfm.SetElement(0, 3, origin[0])
             tfm.SetElement(1, 3, origin[1])
             tfm.SetElement(2, 3, origin[2])
 
-            IO.createTRAFile(
-                volName=segmentName,
-                trialName=None,
-                outputDir=outputDir,
-                trackingsubDir=trackingSubDir,
-                volSize=segmentVolumeSize,
-                Origin2DicomTransformFile=origin2DicomTransformFile,
-                transform=tfm,
+            if origin2DicomTransformFile is not None:
+                origin2DicomNode = self.loadTransformFromFile(origin2DicomTransformFile)
+                tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomNode, applyDicom2Origin=True)
+                slicer.mrmlScene.RemoveNode(origin2DicomNode)
+
+            slicer2autoscoperNode = self.createAndAddSlicer2AutoscoperTransformNode(segmentVolume)
+            slicer2autoscoperFilename = os.path.join(
+                outputDir, transformSubDir, f"{segmentVolume.GetName()}-Slicer2AUT.tfm"
             )
+            slicer.util.saveNode(slicer2autoscoperNode, slicer2autoscoperFilename)
+
+            tfm = self.applySlicer2AutoscoperTransform(tfm, slicer2autoscoperNode, applyAutoscoper2Slicer=False)
+            slicer.mrmlScene.RemoveNode(slicer2autoscoperNode)
+
+            traDir = os.path.join(outputDir, trackingSubDir)
+            if not os.path.exists(traDir):
+                os.mkdir(traDir)
+            filename = os.path.join(traDir, f"{segmentName}.tra")
+            IO.writeTRA(filename, [tfm])
 
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
@@ -1436,3 +1443,79 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         if AutoscoperMLogic.IsSequenceVolume(node):
             return AutoscoperMLogic.getItemInSequence(node, 0)[0].IsCentered()
         return node.IsCentered()
+
+    @staticmethod
+    def loadTransformFromFile(transformFileName: str) -> slicer.vtkMRMLLinearTransformNode:
+        return slicer.util.loadNodeFromFile(transformFileName)
+
+    @staticmethod
+    def applyOrigin2DicomTransform(
+        transform: vtk.vtkMatrix4x4,
+        origin2DicomTransformNode: slicer.vtkMRMLLinearTransformNode,
+        applyDicom2Origin: bool = False,
+    ) -> vtk.vtkMatrix4x4:
+        """Utility function for converting a transform between the dicom centered and
+        world centered coordinate systems."""
+        if applyDicom2Origin:
+            origin2DicomTransformNode.Inverse()
+
+        origin2DicomTransformMatrix = vtk.vtkMatrix4x4()
+        origin2DicomTransformNode.GetMatrixTransformToParent(origin2DicomTransformMatrix)
+
+        vtk.vtkMatrix4x4.Multiply4x4(origin2DicomTransformMatrix, transform, transform)
+
+        return transform
+
+    @staticmethod
+    def applySlicer2AutoscoperTransform(
+        transform: vtk.vtkMatrix4x4,
+        slicer2AutoscoperNode: slicer.vtkMRMLLinearTransformNode,
+        applyAutoscoper2Slicer: bool = False,
+    ) -> vtk.vtkMatrix4x4:
+        """Utility function for converting a transform between the Slicer and Autoscoper coordinate systems."""
+
+        if applyAutoscoper2Slicer:
+            slicer2AutoscoperNode.Inverse()
+
+        slicer2Autoscoper = vtk.vtkMatrix4x4()
+        slicer2AutoscoperNode.GetMatrixTransformToParent(slicer2Autoscoper)
+
+        # Extract the rotation matrices so we are not affecting the translation vector
+        transformR = vtk.vtkMatrix3x3()
+        vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(transform, transformR)
+
+        slicer2AutoscoperR = vtk.vtkMatrix3x3()
+        vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(slicer2Autoscoper, slicer2AutoscoperR)
+
+        vtk.vtkMatrix3x3.Multiply3x3(slicer2AutoscoperR, transformR, transformR)
+
+        vtkAddon.vtkAddonMathUtilities.SetOrientationMatrix(transformR, transform)
+
+        # Apply the translation vector
+        for i in range(3):
+            transform.SetElement(i, 3, transform.GetElement(i, 3) + slicer2Autoscoper.GetElement(i, 3))
+
+        return transform
+
+    @staticmethod
+    def createAndAddSlicer2AutoscoperTransformNode(
+        volumeNode: slicer.vtkMRMLVolumeNode,
+    ) -> slicer.vtkMRMLLinearTransformNode:
+        """Utility function for creating a slicer2Autoscoper transform for the given volume."""
+        # Slicer 2 Autoscoper Transform
+        # https://github.com/BrownBiomechanics/Autoscoper/issues/280
+        bounds = [0] * 6
+        volumeNode.GetRASBounds(bounds)
+        volSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
+
+        slicer2autoscoper = vtk.vtkMatrix4x4()
+        slicer2autoscoper.Identity()
+        # Rotation matrix for a 180 x-axis rotation
+        slicer2autoscoper.SetElement(1, 1, -slicer2autoscoper.GetElement(1, 1))
+        slicer2autoscoper.SetElement(1, 2, -slicer2autoscoper.GetElement(1, 2))
+        slicer2autoscoper.SetElement(2, 2, -slicer2autoscoper.GetElement(2, 2))
+        slicer2autoscoper.SetElement(0, 3, -volSize[0])  # Offset -X
+
+        slicer2autoscoperNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+        slicer2autoscoperNode.SetMatrixTransformToParent(slicer2autoscoper)
+        return slicer2autoscoperNode
