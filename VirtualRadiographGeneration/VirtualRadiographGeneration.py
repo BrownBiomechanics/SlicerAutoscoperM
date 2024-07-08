@@ -1,6 +1,5 @@
 #!/usr/bin/env python-real
 
-import concurrent.futures as cf
 import glob
 import json
 import os
@@ -156,13 +155,5 @@ if __name__ == "__main__":
     reader.SetFileName(volumeData)
     reader.Update()
 
-    # generate the virtual radiograph
-    with cf.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                generateVRG, cam, reader.GetOutput(), os.path.join(camDir, outputFileName), outputWidth, outputHeight
-            )
-            for cam, camDir in cameras.items()
-        ]
-        for future in cf.as_completed(futures):
-            future.result()
+    for cam, camDir in cameras.items():
+        generateVRG(cam, reader.GetOutput(), os.path.join(camDir, outputFileName), outputWidth, outputHeight)
