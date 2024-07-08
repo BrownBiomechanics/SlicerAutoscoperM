@@ -1263,16 +1263,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         :param filename: filename of the VRG
         """
         self.createPathsIfNotExists(outputDir)
-        # Apply a thresh of 0 to the volume to remove air from the volume
-        thresholdScalarVolume = slicer.modules.thresholdscalarvolume
-        parameters = {
-            "InputVolume": volumeNode.GetID(),
-            "OutputVolume": volumeNode.GetID(),
-            "ThresholdValue": 0,
-            "ThresholdType": "Below",
-            "Lower": 0,
-        }
-        slicer.cli.runSync(thresholdScalarVolume, None, parameters)
 
         # write a temporary volume to disk
         volumeFileName = "AutoscoperM_VRG_GEN_TEMP.mhd"
