@@ -294,3 +294,30 @@ def removeTemporyFile(filename: str):
 
     slicerTempDirectory = slicer.app.temporaryPath
     os.remove(os.path.join(slicerTempDirectory, filename))
+
+
+def exportOrigin2DicomTransform(volumeNode: slicer.vtkMRMLVolumeNode, exportDir: str) -> bool:
+    """If volume is not already centered, save corresponding transform as `Origin2Dicom.tfm`"""
+
+    if volumeNode.IsCentered():
+        return False
+
+    volumeNode.AddCenteringTransform()
+
+    # Get reference to the centering transform (Volume to Center)
+    tfmNode = volumeNode.GetParentTransformNode()
+
+    # Revert effect of "AddCenteringTransform"
+    volumeNode.HardenTransform()
+    volumeNode.SetAndObserveTransformNodeID(None)
+
+    # Update from "Volume to Center" to "Center to Volume"
+    tfmNode.Inverse()
+
+    # Save as "Origin2Dicom.tfm"
+    tfmPath = os.path.join(exportDir, "Origin2Dicom.tfm")
+    slicer.util.saveNode(tfmNode, tfmPath)
+
+    slicer.mrmlScene.RemoveNode(tfmNode)
+
+    return True

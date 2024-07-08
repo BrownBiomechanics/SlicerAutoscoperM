@@ -82,7 +82,7 @@ def generateNCameras(
     :return: List of cameras
     """
     # find the center of the bounds
-    center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
+    center = [(bounds[i + 1] + bounds[i]) / 2 for i in range(0, 6, 2)]
 
     # find the largest dimension of the bounds
     largestDimension = max([bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4]])
