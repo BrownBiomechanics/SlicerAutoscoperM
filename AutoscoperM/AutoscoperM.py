@@ -1510,11 +1510,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         slicer2autoscoper = vtk.vtkMatrix4x4()
         slicer2autoscoper.Identity()
-        # Rotation matrix for a 180 x-axis rotation
-        slicer2autoscoper.SetElement(1, 1, -slicer2autoscoper.GetElement(1, 1))
-        slicer2autoscoper.SetElement(1, 2, -slicer2autoscoper.GetElement(1, 2))
+        # Rotation matrix for a 180 y-axis rotation
+        slicer2autoscoper.SetElement(0, 0, -slicer2autoscoper.GetElement(0, 0))
         slicer2autoscoper.SetElement(2, 2, -slicer2autoscoper.GetElement(2, 2))
-        slicer2autoscoper.SetElement(0, 3, -volSize[0])  # Offset -X
+        slicer2autoscoper.SetElement(1, 3, -volSize[1])  # Offset -Y
 
         slicer2autoscoperNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
         slicer2autoscoperNode.SetMatrixTransformToParent(slicer2autoscoper)
