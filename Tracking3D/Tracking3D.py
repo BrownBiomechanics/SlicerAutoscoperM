@@ -125,6 +125,9 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
+        # Sets the frame slider range to be the number of nodes within the sequence
+        self.ui.inputSelectorCT.connect("currentNodeChanged(vtkMRMLNode*)", self.updateFrameSlider)
+
         # Buttons
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
         self.ui.exportButton.connect("clicked(bool)", self.onExportButton)
@@ -237,7 +240,10 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     initialGuess = self.ui.inputSelectorInitGuessTFM.currentNode()
                     rootID = self.ui.SubjectHierarchyComboBox.currentItem()
 
-                    self.logic.registerSequence(CT, rootID, initialGuess)
+                    startFrame = self.ui.startFrame.value
+                    endFrame = self.ui.endFrame.value
+
+                    self.logic.registerSequence(CT, rootID, startFrame, endFrame, initialGuess)
                 finally:
                     self.inProgress = False
         self.updateApplyButtonState()
@@ -261,6 +267,19 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 child.exportTransformsAsTRAFile()
                 node_list.extend(child.childNodes)
         slicer.util.messageBox("Success!")
+
+    def updateFrameSlider(self, CTSelectorNode: slicer.vtkMRMLNode):
+        if self.logic.autoscoperLogic.IsSequenceVolume(CTSelectorNode):
+            numNodes = CTSelectorNode.GetNumberOfDataNodes()
+            self.ui.frameSlider.maximum = numNodes
+            self.ui.startFrame.maximum = numNodes
+            self.ui.endFrame.maximum = numNodes
+            self.ui.endFrame.value = numNodes
+        elif CTSelectorNode is None:
+            self.ui.frameSlider.maximum = 0
+            self.ui.startFrame.maximum = 0
+            self.ui.endFrame.maximum = 0
+            self.ui.endFrame.value = 0
 
 
 #
@@ -347,21 +366,25 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         slicer.mrmlScene.RemoveNode(roi)
 
     def registerSequence(
-        self, ctSequence: vtkMRMLSequenceNode, rootID: int, initialGuess: Optional[vtkMRMLTransformNode] = None
+        self,
+        ctSequence: vtkMRMLSequenceNode,
+        rootID: int,
+        startFrame: int,
+        endFrame: int,
+        initialGuess: Optional[vtkMRMLTransformNode] = None,
     ) -> None:
         """Performs hierarchical registration on a ct sequence."""
         import logging
         import time
 
         rootNode = TreeNode(hierarchyID=rootID, ctSequence=ctSequence, isRoot=True, initialGuess=initialGuess)
-        rootNode.applyTransformToChildren(1)  # TODO: Make sure this is inline with the slider
+        rootNode.applyTransformToChildren(startFrame)
 
         try:
             self.isRunning = True
-            for idx in range(1, ctSequence.GetNumberOfDataNodes()):  # TODO: add UI slider to set range
+            for idx in range(startFrame, endFrame):
                 nodeList = rootNode.childNodes.copy()
                 for node in nodeList:
-                    # Defiantly some opportunities to parallelize this (run each tier in sync)
                     node.dataNode.SetAndObserveTransformNodeID(None)
                     slicer.app.processEvents()
                     if self.cancelRequested:
