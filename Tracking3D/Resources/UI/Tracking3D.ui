@@ -17,17 +17,36 @@
       <string>Registration</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Hierarchy:</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_6">
         <property name="text">
          <string>Input CT Sequence:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2">
+       <widget class="ctkRangeSlider" name="frameSlider">
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="minimumValue">
+         <number>0</number>
+        </property>
+        <property name="maximumValue">
+         <number>0</number>
+        </property>
+        <property name="symmetricMoves">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Hierarchy:</string>
         </property>
        </widget>
       </item>
@@ -38,23 +57,30 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="2">
-       <widget class="qMRMLSubjectHierarchyComboBox" name="SubjectHierarchyComboBox">
-        <property name="includeItemAttributeNamesFilter">
-         <stringlist notr="true"/>
+      <item row="4" column="1">
+       <widget class="QSpinBox" name="startFrame">
+        <property name="minimum">
+         <number>0</number>
         </property>
-        <property name="includeNodeAttributeNamesFilter">
-         <stringlist notr="true"/>
+        <property name="maximum">
+         <number>0</number>
         </property>
-        <property name="excludeItemAttributeNamesFilter">
-         <stringlist notr="true"/>
-        </property>
-        <property name="excludeNodeAttributeNamesFilter">
-         <stringlist notr="true"/>
+        <property name="value">
+         <number>0</number>
         </property>
        </widget>
       </item>
-      <item row="3" column="2">
+      <item row="4" column="3">
+       <widget class="QSpinBox" name="endFrame">
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="3">
        <widget class="qMRMLNodeComboBox" name="inputSelectorInitGuessTFM">
         <property name="enabled">
          <bool>false</bool>
@@ -81,7 +107,7 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="2">
+      <item row="2" column="1" colspan="3">
        <widget class="qMRMLNodeComboBox" name="inputSelectorCT">
         <property name="enabled">
          <bool>false</bool>
@@ -105,6 +131,29 @@
         </property>
         <property name="SlicerParameterName" stdset="0">
          <string>inputVolumeSequence</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" colspan="3">
+       <widget class="qMRMLSubjectHierarchyComboBox" name="SubjectHierarchyComboBox">
+        <property name="includeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="includeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Frames</string>
         </property>
        </widget>
       </item>
@@ -174,6 +223,11 @@
    <extends>QComboBox</extends>
    <header>ctkComboBox.h</header>
   </customwidget>
+  <customwidget>
+   <class>ctkRangeSlider</class>
+   <extends>QSlider</extends>
+   <header>ctkRangeSlider.h</header>
+  </customwidget>
  </customwidgets>
  <resources/>
  <connections>
@@ -222,6 +276,70 @@
     <hint type="destinationlabel">
      <x>392</x>
      <y>412</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>frameSlider</sender>
+   <signal>minimumValueChanged(int)</signal>
+   <receiver>startFrame</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>196</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>frameSlider</sender>
+   <signal>maximumValueChanged(int)</signal>
+   <receiver>endFrame</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>742</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>endFrame</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>frameSlider</receiver>
+   <slot>setMaximumValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>742</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>startFrame</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>frameSlider</receiver>
+   <slot>setMinimumValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>196</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>469</x>
+     <y>148</y>
     </hint>
    </hints>
   </connection>
