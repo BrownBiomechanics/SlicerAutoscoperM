@@ -42,15 +42,15 @@ class TreeNode:
             self.name = self.shNode.GetItemName(self.hierarchyID)
             self.dataNode = self.shNode.GetItemDataNode(self.hierarchyID)
             if initializeTransforms:
-                self.transformSquence = self._initializeTransforms()
+                self.transformSequence = self._initializeTransforms()
             else:
-                self.transformSquence = slicer.util.getNode(
+                self.transformSequence = slicer.util.getNode(
                     f"{self.name}_transform_sequence-{self.name}_transform_sequence-Seq"
                 )
-                if not isinstance(self.transformSquence, slicer.vtkMRMLSequenceNode):
+                if not isinstance(self.transformSequence, slicer.vtkMRMLSequenceNode):
                     raise ValueError(
-                        f"""Found transformNode {self.transformSquence.GetName()}, but it is not a sequence.
-                        type(transformNode) == {type(self.transformSquence)}"""
+                        f"""Found transformNode {self.transformSequence.GetName()}, but it is not a sequence.
+                        type(transformNode) == {type(self.transformSequence)}"""
                     )
 
         children_ids = []
@@ -66,38 +66,52 @@ class TreeNode:
         """Creates a new transform sequence in the same browser as the CT sequence."""
         import logging
 
-        logging.info(f"Initializing {self.name}")
-        newSequenceNode = self.autoscoperLogic.createSequenceNodeInBrowser(
-            f"{self.name}_transform_sequence", self.ctSequence
-        )
-        [  # Populate the sequence node with blank transforms
-            newSequenceNode.SetDataNodeAtValue(slicer.vtkMRMLLinearTransformNode(), f"{i}")
-            for i in range(self.ctSequence.GetNumberOfDataNodes())
-        ]
-        slicer.app.processEvents()
+        try:
+            logging.info(f"Searching for {self.name} transforms")
+            newSequenceNode = slicer.util.getNode(f"{self.name}_transform_sequence")
+        except slicer.util.MRMLNodeNotFoundException:
+            logging.info(f"Transforms not found, Initializing {self.name}")
+            newSequenceNode = self.autoscoperLogic.createSequenceNodeInBrowser(
+                f"{self.name}_transform_sequence", self.ctSequence
+            )
+            nodes = []
+            for i in range(self.ctSequence.GetNumberOfDataNodes()):
+                curTfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"{self.name}-{i}")
+                newSequenceNode.SetDataNodeAtValue(curTfm, f"{i}")
+                nodes.append(curTfm)
+            [slicer.mrmlScene.RemoveNode(node) for node in nodes]
+
+            slicer.app.processEvents()
         return newSequenceNode
 
     def _applyTransform(self, transform: slicer.vtkMRMLTransformNode, idx: int) -> None:
         """Applies and hardends a transform node to the transform in the sequence at the provided index."""
-        if idx < self.transformSquence.GetNumberOfDataNodes():
-            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSquence, idx)[0]
+        if idx < self.transformSequence.GetNumberOfDataNodes():
+            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
             current_transform.SetAndObserveTransformNodeID(transform.GetID())
             current_transform.HardenTransform()
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
-        if idx < self.transformSquence.GetNumberOfDataNodes():
-            return self.autoscoperLogic.getItemInSequence(self.transformSquence, idx)[0]
+        if idx < self.transformSequence.GetNumberOfDataNodes():
+            return self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
         return None
+
+    def setTransform(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
+        if idx < self.transformSequence.GetNumberOfDataNodes():
+            mat = vtk.vtkMatrix4x4()
+            transform.GetMatrixTransformToParent(mat)
+            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+            current_transform.SetMatrixTransformToParent(mat)
 
     def applyTransformToChildren(self, idx: int) -> None:
         """Applies the transform at the provided index to all children of this node."""
         applyTransform = None
         if self.isRoot:
             applyTransform = self.initial_guess
-        elif idx < self.transformSquence.GetNumberOfDataNodes():
-            applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSquence, idx)[0]
-        [childNode._applyTransform(applyTransform, idx) for childNode in self.childNodes]
+        elif idx < self.transformSequence.GetNumberOfDataNodes():
+            applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        [childNode.setTransform(applyTransform, idx) for childNode in self.childNodes]
 
     def copyTransformToNextFrame(self, currentIdx: int) -> None:
         """Copies the transform at the provided index to the next frame."""
@@ -114,7 +128,7 @@ class TreeNode:
         """Exports the sequence as a TRA file for reading into Autoscoper."""
         # Convert the sequence to a list of vtkMatrices
         transforms = []
-        for idx in range(self.transformSquence.GetNumberOfDataNodes()):
+        for idx in range(self.transformSequence.GetNumberOfDataNodes()):
             mat = vtk.vtkMatrix4x4()
             node = self.getTransform(idx)
             node.GetMatrixTransformToParent(mat)
@@ -130,7 +144,7 @@ class TreeNode:
         # Since each additional transform is the change from the neutral position
         # we need to apply each additional transform to the neutral to get the final transform
         neutralArray = self.autoscoperLogic.vtkToNumpy(transforms[0])
-        for idx in range(1, self.transformSquence.GetNumberOfDataNodes()):
+        for idx in range(1, self.transformSequence.GetNumberOfDataNodes()):
             currentArray = self.autoscoperLogic.vtkToNumpy(transforms[idx])
             currentArray = currentArray @ neutralArray
             transforms[idx] = self.autoscoperLogic.numpyToVtk(currentArray)
