@@ -66,16 +66,12 @@ class Tracking3DParameterNode:
     """
     The parameters needed by module.
 
-    inputPartialVolume - The volume register and track throughout the sequence.
     inputVolumeSequence - The volume sequence.
-    initialGuessTFM - Initial guess for the partial volume position.
-    outputTFM -The resulting transform
 
     """
 
     # inputHierarchyRootID: str
     inputVolumeSequence: vtkMRMLSequenceNode
-    initialGuessTFM: vtkMRMLTransformNode
 
 
 #
@@ -237,13 +233,12 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.updateApplyButtonState()
 
                     CT = self.ui.inputSelectorCT.currentNode()
-                    initialGuess = self.ui.inputSelectorInitGuessTFM.currentNode()
                     rootID = self.ui.SubjectHierarchyComboBox.currentItem()
 
                     startFrame = self.ui.startFrame.value
                     endFrame = self.ui.endFrame.value
 
-                    self.logic.registerSequence(CT, rootID, startFrame, endFrame, initialGuess)
+                    self.logic.registerSequence(CT, rootID, startFrame, endFrame)
                 finally:
                     self.inProgress = False
         self.updateApplyButtonState()
@@ -257,10 +252,7 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 raise ValueError("Invalid hierarchy object selected!")
 
             rootID = self.ui.SubjectHierarchyComboBox.currentItem()
-            initialGuess = self.ui.inputSelectorInitGuessTFM.currentNode()
-            rootNode = TreeNode(
-                hierarchyID=rootID, ctSequence=None, isRoot=True, initialGuess=initialGuess, initializeTransforms=False
-            )
+            rootNode = TreeNode(hierarchyID=rootID, ctSequence=None, isRoot=True)
 
             node_list = rootNode.childNodes.copy()
             for child in node_list:
@@ -371,19 +363,17 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         rootID: int,
         startFrame: int,
         endFrame: int,
-        initialGuess: Optional[vtkMRMLTransformNode] = None,
     ) -> None:
         """Performs hierarchical registration on a ct sequence."""
         import logging
         import time
 
-        rootNode = TreeNode(hierarchyID=rootID, ctSequence=ctSequence, isRoot=True, initialGuess=initialGuess)
-        rootNode.applyTransformToChildren(startFrame)
+        rootNode = TreeNode(hierarchyID=rootID, ctSequence=ctSequence, isRoot=True)
 
         try:
             self.isRunning = True
             for idx in range(startFrame, endFrame):
-                nodeList = rootNode.childNodes.copy()
+                nodeList = [rootNode]
                 for node in nodeList:
                     node.dataNode.SetAndObserveTransformNodeID(None)
                     slicer.app.processEvents()
@@ -410,7 +400,9 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
                     node.dataNode.SetAndObserveTransformNodeID(node.getTransform(idx).GetID())
 
                 # Use the output of the roots children as the initial guess for next frame
-                [node.copyTransformToNextFrame(idx) for node in rootNode.childNodes]
+                if idx != endFrame - 1:  # Unless its the last frame
+                    [node.copyTransformToNextFrame(idx) for node in rootNode.childNodes]
+
         finally:
             self.isRunning = False
             self.cancelRequested = False

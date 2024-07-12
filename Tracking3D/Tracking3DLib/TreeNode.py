@@ -19,8 +19,6 @@ class TreeNode:
         ctSequence: slicer.vtkMRMLSequenceNode,
         parent: TreeNode | None = None,
         isRoot: bool = False,
-        initialGuess: slicer.vtkMRMLTransformNode | None = None,
-        initializeTransforms: bool = True,
     ):
         self.hierarchyID = hierarchyID
         self.isRoot = isRoot
@@ -33,33 +31,14 @@ class TreeNode:
         self.shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
         self.autoscoperLogic = AutoscoperMLogic()
 
-        if self.isRoot:
-            if initialGuess is None:
-                raise ValueError("Root node must have initial guess.")
-            self.initial_guess = initialGuess
-
-        if not self.isRoot:
-            self.name = self.shNode.GetItemName(self.hierarchyID)
-            self.dataNode = self.shNode.GetItemDataNode(self.hierarchyID)
-            if initializeTransforms:
-                self.transformSequence = self._initializeTransforms()
-            else:
-                self.transformSequence = slicer.util.getNode(
-                    f"{self.name}_transform_sequence-{self.name}_transform_sequence-Seq"
-                )
-                if not isinstance(self.transformSequence, slicer.vtkMRMLSequenceNode):
-                    raise ValueError(
-                        f"""Found transformNode {self.transformSequence.GetName()}, but it is not a sequence.
-                        type(transformNode) == {type(self.transformSequence)}"""
-                    )
+        self.name = self.shNode.GetItemName(self.hierarchyID)
+        self.dataNode = self.shNode.GetItemDataNode(self.hierarchyID)
+        self.transformSequence = self._initializeTransforms()
 
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
         self.childNodes = [
-            TreeNode(
-                hierarchyID=child_id, ctSequence=self.ctSequence, parent=self, initializeTransforms=initializeTransforms
-            )
-            for child_id in children_ids
+            TreeNode(hierarchyID=child_id, ctSequence=self.ctSequence, parent=self) for child_id in children_ids
         ]
 
     def _initializeTransforms(self) -> slicer.vtkMRMLSequenceNode:
@@ -81,6 +60,11 @@ class TreeNode:
                 nodes.append(curTfm)
             [slicer.mrmlScene.RemoveNode(node) for node in nodes]
 
+            # Bit of a strange issue but the browser doesn't seem to update unless it moves to a new index,
+            # so we force it to update here
+            self.autoscoperLogic.getItemInSequence(newSequenceNode, 1)
+            self.autoscoperLogic.getItemInSequence(newSequenceNode, 0)
+
             slicer.app.processEvents()
         return newSequenceNode
 
@@ -98,6 +82,7 @@ class TreeNode:
         return None
 
     def setTransform(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
+        """Sets the transform for the provided index."""
         if idx < self.transformSequence.GetNumberOfDataNodes():
             mat = vtk.vtkMatrix4x4()
             transform.GetMatrixTransformToParent(mat)
@@ -106,12 +91,9 @@ class TreeNode:
 
     def applyTransformToChildren(self, idx: int) -> None:
         """Applies the transform at the provided index to all children of this node."""
-        applyTransform = None
-        if self.isRoot:
-            applyTransform = self.initial_guess
-        elif idx < self.transformSequence.GetNumberOfDataNodes():
+        if idx < self.transformSequence.GetNumberOfDataNodes():
             applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-        [childNode.setTransform(applyTransform, idx) for childNode in self.childNodes]
+            [childNode.setTransform(applyTransform, idx) for childNode in self.childNodes]
 
     def copyTransformToNextFrame(self, currentIdx: int) -> None:
         """Copies the transform at the provided index to the next frame."""
