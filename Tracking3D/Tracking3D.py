@@ -135,7 +135,9 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Buttons
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        self.ui.importButton.connect("clicked(bool)", self.onImportButton)
         self.ui.exportButton.connect("clicked(bool)", self.onExportButton)
+        self.ui.initHierarchyButton.connect("clicked(bool)", self.onInitHierarchyButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -247,29 +249,74 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     startFrame = self.ui.startFrame.value
                     endFrame = self.ui.endFrame.value
 
-                    self.logic.registerSequence(CT, rootID, startFrame, endFrame)
+                    trackOnlyRoot = self.ui.onlyTrackRootNodeCheckBox.isChecked()
+
+                    self.logic.registerSequence(CT, rootID, startFrame, endFrame, trackOnlyRoot)
                 finally:
                     self.inProgress = False
+            slicer.util.messageBox("Success!")
         self.updateApplyButtonState()
-        slicer.util.messageBox("Success!")
 
-    def onExportButton(self):
-        """UI button for writing the sequences as TRA files."""
-        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+    def onImportButton(self):
+        """UI button for reading the TRA files into sequences."""
+        import glob
+        import logging
+        import os
+
+        with slicer.util.tryWithErrorDisplay("Failed to import transforms", waitCursor=True):
             currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem() != 0
             if not currentRootIDStatus:  # TODO: Remove this once this is working with the parameterNodeWrapper
                 raise ValueError("Invalid hierarchy object selected!")
 
+            CT = self.ui.inputSelectorCT.currentNode()
             rootID = self.ui.SubjectHierarchyComboBox.currentItem()
-            rootNode = TreeNode(hierarchyID=rootID, ctSequence=None, isRoot=True)
+            rootNode = TreeNode(hierarchyID=rootID, ctSequence=CT, isRoot=True)
 
-            node_list = rootNode.childNodes.copy()
-            for child in node_list:
-                child.exportTransformsAsTRAFile()
-                node_list.extend(child.childNodes)
+            importDir = self.ui.ioDir.currentPath
+            if importDir == "":
+                raise ValueError("Import directory not set!")
+
+            node_list = [rootNode]
+            for node in node_list:
+                node.dataNode.SetAndObserveTransformNodeID(node.getTransform(0).GetID())
+                node_list.extend(node.childNodes)
+
+                foundFiles = glob.glob(os.path.join(importDir, f"{node.name}*.tra"))
+                if len(foundFiles) == 0:
+                    logging.warning(f"No files found matching the '{node.name}*.tra' pattern")
+                    return
+
+                if len(foundFiles) > 1:
+                    logging.warning(
+                        f"Found multiple tra files matching the '{node.name}*.tra' pattern, using {foundFiles[0]}"
+                    )
+
+                node.importTransfromsFromTRAFile(foundFiles[0])
+        slicer.util.messageBox("Success!")
+
+    def onExportButton(self):
+        """UI button for writing the sequences as TRA files."""
+        with slicer.util.tryWithErrorDisplay("Failed to export transforms.", waitCursor=True):
+            currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem() != 0
+            if not currentRootIDStatus:  # TODO: Remove this once this is working with the parameterNodeWrapper
+                raise ValueError("Invalid hierarchy object selected!")
+
+            CT = self.ui.inputSelectorCT.currentNode()
+            rootID = self.ui.SubjectHierarchyComboBox.currentItem()
+            rootNode = TreeNode(hierarchyID=rootID, ctSequence=CT, isRoot=True)
+
+            exportDir = self.ui.ioDir.currentPath
+            if exportDir == "":
+                raise ValueError("Export directory not set!")
+
+            node_list = [rootNode]
+            for node in node_list:
+                node.exportTransformsAsTRAFile(exportDir)
+                node_list.extend(node.childNodes)
         slicer.util.messageBox("Success!")
 
     def updateFrameSlider(self, CTSelectorNode: slicer.vtkMRMLNode):
+        """Updates the slider and spin boxes when a new sequence is selected."""
         if self.logic.autoscoperLogic.IsSequenceVolume(CTSelectorNode):
             numNodes = CTSelectorNode.GetNumberOfDataNodes()
             self.ui.frameSlider.maximum = numNodes
@@ -281,6 +328,17 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.startFrame.maximum = 0
             self.ui.endFrame.maximum = 0
             self.ui.endFrame.value = 0
+
+    def onInitHierarchyButton(self):
+        """UI Button for initializing the hierarchy transforms."""
+        with slicer.util.tryWithErrorDisplay("Failed initialize transforms.", waitCursor=True):
+            currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem() != 0
+            if not currentRootIDStatus:  # TODO: Remove this once this is working with the parameterNodeWrapper
+                raise ValueError("Invalid hierarchy object selected!")
+
+            CT = self.ui.inputSelectorCT.currentNode()
+            rootID = self.ui.SubjectHierarchyComboBox.currentItem()
+            TreeNode(hierarchyID=rootID, ctSequence=CT, isRoot=True)
 
 
 #
@@ -311,7 +369,7 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         return Tracking3DParameterNode(super().getParameterNode())
 
     @staticmethod
-    def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLTransformNode:
+    def parameterObject2SlicerTransform(paramObj: itk.ParameterObject) -> slicer.vtkMRMLTransformNode:
         from math import cos, sin
 
         import numpy as np
@@ -371,7 +429,7 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
             elastixObj = itk.ElastixRegistrationMethod.New(fixedITKImage, movingITKImage)
             elastixObj.SetParameterObject(paramObj)
             elastixObj.SetNumberOfThreads(16)
-            elastixObj.LogToConsoleOn()
+            elastixObj.LogToConsoleOn()  # TODO: Update this to log to file instead
             try:
                 elastixObj.UpdateLargestPossibleRegion()
             except Exception as e:
@@ -403,6 +461,7 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         rootID: int,
         startFrame: int,
         endFrame: int,
+        trackOnlyRoot: bool = False,
     ) -> None:
         """Performs hierarchical registration on a ct sequence."""
         import logging
@@ -415,7 +474,6 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
             for idx in range(startFrame, endFrame):
                 nodeList = [rootNode]
                 for node in nodeList:
-                    node.dataNode.SetAndObserveTransformNodeID(None)
                     slicer.app.processEvents()
                     if self.cancelRequested:
                         logging.info("User canceled")
@@ -434,8 +492,9 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
                     logging.info(f"{node.name} took {end-start} for frame {idx}.")
 
                     # Add children to node_list
-                    node.applyTransformToChildren(idx)
-                    nodeList.extend(node.childNodes)
+                    if not trackOnlyRoot:
+                        node.applyTransformToChildren(idx)
+                        nodeList.extend(node.childNodes)
 
                     node.dataNode.SetAndObserveTransformNodeID(node.getTransform(idx).GetID())
 
