@@ -49,23 +49,29 @@ class TreeNode:
             logging.info(f"Searching for {self.name} transforms")
             newSequenceNode = slicer.util.getNode(f"{self.name}_transform_sequence")
         except slicer.util.MRMLNodeNotFoundException:
-            logging.info(f"Transforms not found, Initializing {self.name}")
-            newSequenceNode = self.autoscoperLogic.createSequenceNodeInBrowser(
-                f"{self.name}_transform_sequence", self.ctSequence
-            )
-            nodes = []
-            for i in range(self.ctSequence.GetNumberOfDataNodes()):
-                curTfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"{self.name}-{i}")
-                newSequenceNode.SetDataNodeAtValue(curTfm, f"{i}")
-                nodes.append(curTfm)
-            [slicer.mrmlScene.RemoveNode(node) for node in nodes]
+            try:  # Loading the sequence transforms from seq and tfm files can be wacky
+                logging.info(f"Searching for {self.name} transforms")
+                newSequenceNode = slicer.util.getNode(
+                    f"{self.name}_transform_sequence-{self.name}_transform_sequence-Seq"
+                )
+            except slicer.util.MRMLNodeNotFoundException:
+                logging.info(f"Transforms not found, Initializing {self.name}")
+                newSequenceNode = self.autoscoperLogic.createSequenceNodeInBrowser(
+                    f"{self.name}_transform_sequence", self.ctSequence
+                )
+                nodes = []
+                for i in range(self.ctSequence.GetNumberOfDataNodes()):
+                    curTfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"{self.name}-{i}")
+                    newSequenceNode.SetDataNodeAtValue(curTfm, f"{i}")
+                    nodes.append(curTfm)
+                [slicer.mrmlScene.RemoveNode(node) for node in nodes]
 
-            # Bit of a strange issue but the browser doesn't seem to update unless it moves to a new index,
-            # so we force it to update here
-            self.autoscoperLogic.getItemInSequence(newSequenceNode, 1)
-            self.autoscoperLogic.getItemInSequence(newSequenceNode, 0)
+                # Bit of a strange issue but the browser doesn't seem to update unless it moves to a new index,
+                # so we force it to update here
+                self.autoscoperLogic.getItemInSequence(newSequenceNode, 1)
+                self.autoscoperLogic.getItemInSequence(newSequenceNode, 0)
 
-            slicer.app.processEvents()
+                slicer.app.processEvents()
         return newSequenceNode
 
     def _applyTransform(self, transform: slicer.vtkMRMLTransformNode, idx: int) -> None:
@@ -81,13 +87,18 @@ class TreeNode:
             return self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
         return None
 
-    def setTransform(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
+    def setTransformFromNode(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
         """Sets the transform for the provided index."""
         if idx < self.transformSequence.GetNumberOfDataNodes():
             mat = vtk.vtkMatrix4x4()
             transform.GetMatrixTransformToParent(mat)
             current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
             current_transform.SetMatrixTransformToParent(mat)
+
+    def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:
+        if idx < self.transformSequence.GetNumberOfDataNodes():
+            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+            current_transform.SetMatrixTransformToParent(transform)
 
     def applyTransformToChildren(self, idx: int) -> None:
         """Applies the transform at the provided index to all children of this node."""
@@ -106,7 +117,7 @@ class TreeNode:
         if nextTransform is not None:
             nextTransform.SetMatrixTransformToParent(transformMatrix)
 
-    def exportTransformsAsTRAFile(self):
+    def exportTransformsAsTRAFile(self, exportDir: str):
         """Exports the sequence as a TRA file for reading into Autoscoper."""
         # Convert the sequence to a list of vtkMatrices
         transforms = []
@@ -116,32 +127,15 @@ class TreeNode:
             node.GetMatrixTransformToParent(mat)
             transforms.append(mat)
 
-        # Apply the Slicer2Autoscoper Transform to the neutral frame
-        bounds = [0] * 6
-        self.dataNode.GetRASBounds(bounds)
-        volSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
-        origin = self.dataNode.GetOrigin()
-        transforms[0] = self.autoscoperLogic.applySlicer2AutoscoperTransform(transforms[0], volSize, origin)
-
-        # Since each additional transform is the change from the neutral position
-        # we need to apply each additional transform to the neutral to get the final transform
-        neutralArray = self.autoscoperLogic.vtkToNumpy(transforms[0])
-        for idx in range(1, self.transformSequence.GetNumberOfDataNodes()):
-            currentArray = self.autoscoperLogic.vtkToNumpy(transforms[idx])
-            currentArray = currentArray @ neutralArray
-            transforms[idx] = self.autoscoperLogic.numpyToVtk(currentArray)
-
-        # Move each transform from the DICOM space into AUT space
-        # TODO: Get this file from user
-        o2dFile = r"AutoscoperM-Pre-Processing\Autoscoper Scene\Transforms\Origin2Dicom.tfm"
-        o2dFile = os.path.join(slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory(), o2dFile)
-        transforms = [self.autoscoperLogic.applyOrigin2DicomTransform(tfm, o2dFile) for tfm in transforms]
-
-        # Write out tra
-        # TODO: Make the directory user defined
-        exportDir = r"AutoscoperM-Pre-Processing\Tracking"
-        exportDir = os.path.join(slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory(), exportDir)
         if not os.path.exists(exportDir):
             os.mkdir(exportDir)
-        filename = os.path.join(exportDir, f"{self.name}.tra")
+        filename = os.path.join(exportDir, f"{self.name}-abs-RAS.tra")
         IO.writeTRA(filename, transforms)
+
+    def importTransfromsFromTRAFile(self, filename: str):
+        import numpy as np
+
+        tra = np.loadtxt(filename, delimiter=",")
+        tra.resize(tra.shape[0], 4, 4)
+        for idx in range(tra.shape[0]):
+            self.setTransformFromMatrix(self.autoscoperLogic.numpyToVtk(tra[idx, :, :]), idx)
