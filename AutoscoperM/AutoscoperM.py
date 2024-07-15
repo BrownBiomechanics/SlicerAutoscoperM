@@ -1529,7 +1529,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         pVol2AutNode: slicer.vtkMRMLLinearTransformNode,
     ) -> vtk.vtkMatrix4x4:
         """Utility function for converting a transform between the Slicer and Autoscoper coordinate systems."""
-
         pvol2aut = vtk.vtkMatrix4x4()
         pVol2AutNode.GetMatrixTransformToParent(pvol2aut)
 
