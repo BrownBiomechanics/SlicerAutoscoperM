@@ -1067,7 +1067,18 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             IO.writeTFMFile(f"{transformFilenameBase}.tfm", spacing, origin)
             self.showVolumeIn3D(segmentVolume)
 
-            # Write TRA
+            # Create PVOL2AUT transform
+            pvol2autNode = self.createAndAddPVol2AutTransformNode(segmentVolume)
+            pvol2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-PVOL2AUT.tfm")
+            slicer.util.saveNode(pvol2autNode, pvol2autFilename)
+
+            # Create DICOM2AUT transform
+            dicom2autNode = self.createAndAddDicom2AutTransformNode(origin, pvol2autNode)
+            dicom2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-DICOM2AUT.tfm")
+            slicer.util.exportNode(dicom2autNode, dicom2autFilename)
+            slicer.mrmlScene.RemoveNode(dicom2autNode)
+
+            # Create TRA file
             tfm = vtk.vtkMatrix4x4()
             tfm.SetElement(0, 3, origin[0])
             tfm.SetElement(1, 3, origin[1])
@@ -1079,27 +1090,22 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
                 tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomNode)
                 slicer.mrmlScene.RemoveNode(origin2DicomNode)
 
-            pvol2autNode = self.createAndAddPVol2AutTransformNode(segmentVolume)
-            pvol2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-PVOL2AUT.tfm")
-            slicer.util.saveNode(pvol2autNode, pvol2autFilename)
-
             tfm = self.applyPVol2AutTransform(tfm, pvol2autNode)
             slicer.mrmlScene.RemoveNode(pvol2autNode)
 
-            # Apply RAS to LPS transform
             tfmR = vtk.vtkMatrix3x3()
             vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(tfm, tfmR)
 
+            # Apply RAS to LPS transform
             RAS2LPS = vtk.vtkMatrix3x3()
             RAS2LPS.SetElement(0, 0, -1)
             RAS2LPS.SetElement(1, 1, -1)
+
             vtk.vtkMatrix3x3.Multiply3x3(tfmR, RAS2LPS, tfmR)
             vtkAddon.vtkAddonMathUtilities.SetOrientationMatrix(tfmR, tfm)
 
-            traDir = os.path.join(outputDir, trackingSubDir)
-            if not os.path.exists(traDir):
-                os.mkdir(traDir)
-            filename = os.path.join(traDir, f"{segmentName}.tra")
+            # Save TRA file
+            filename = os.path.join(outputDir, trackingSubDir, f"{segmentName}.tra")
             IO.writeTRA(filename, [tfm])
 
             # update progress bar
@@ -1513,3 +1519,19 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         pvol2autoNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
         pvol2autoNode.SetMatrixTransformToParent(pvol2aut)
         return pvol2autoNode
+
+    @staticmethod
+    def createAndAddDicom2AutTransformNode(
+        origin: list[float], pvol2autNode: slicer.vtkMRMLLinearTransformNode
+    ) -> slicer.vtkMRMLLinearTransformNode:
+        """Utility function that creates and adds a DICOM2AUT transform node"""
+        dicom2aut = vtk.vtkMatrix4x4()
+        dicom2aut.SetElement(0, 3, -origin[0])
+        dicom2aut.SetElement(1, 3, origin[1])
+        dicom2aut.SetElement(2, 3, origin[2])
+        dicom2aut = AutoscoperMLogic.applyPVol2AutTransform(dicom2aut, pvol2autNode)
+
+        dicom2autNode = slicer.vtkMRMLLinearTransformNode()
+        dicom2autNode.SetMatrixTransformToParent(dicom2aut)
+        slicer.mrmlScene.AddNode(dicom2autNode)
+        return dicom2autNode
