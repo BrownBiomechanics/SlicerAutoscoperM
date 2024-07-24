@@ -708,6 +708,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         currentVolumeNode,
                         self.ui.segGen_ThresholdSpinBox.value,
                         self.ui.segGen_marginSizeSpin.value,
+                        progressCallback=self.updateProgressBar,
                     )
                     progress = (i + 1) / numFrames * 100
                     self.ui.progressBar.setValue(progress)
@@ -715,13 +716,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
                         slicer.mrmlScene.RemoveNode(segmentationNode)
                         currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
-
-                segmentationNode = SubVolumeExtraction.automaticSegmentation(
-                    volumeNode,
-                    self.ui.segGen_ThresholdSpinBox.value,
-                    self.ui.segGen_marginSizeSpin.value,
-                    progressCallback=self.updateProgressBar,
-                )
             elif self.ui.segGen_fileRadioButton.isChecked():
                 segmentationFileDir = self.ui.segGen_lineEdit.currentPath
                 if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
