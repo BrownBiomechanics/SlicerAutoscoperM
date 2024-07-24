@@ -1075,17 +1075,26 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
             if origin2DicomTransformFile is not None:
                 origin2DicomNode = self.loadTransformFromFile(origin2DicomTransformFile)
-                tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomNode, applyDicom2Origin=True)
+                origin2DicomNode.Inverse()
+                tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomNode)
                 slicer.mrmlScene.RemoveNode(origin2DicomNode)
 
-            slicer2autoscoperNode = self.createAndAddSlicer2AutoscoperTransformNode(segmentVolume)
-            slicer2autoscoperFilename = os.path.join(
-                outputDir, transformSubDir, f"{segmentVolume.GetName()}-Slicer2AUT.tfm"
-            )
-            slicer.util.saveNode(slicer2autoscoperNode, slicer2autoscoperFilename)
+            pvol2autNode = self.createAndAddPVol2AutTransformNode(segmentVolume)
+            pvol2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-PVOL2AUT.tfm")
+            slicer.util.saveNode(pvol2autNode, pvol2autFilename)
 
-            tfm = self.applySlicer2AutoscoperTransform(tfm, slicer2autoscoperNode, applyAutoscoper2Slicer=False)
-            slicer.mrmlScene.RemoveNode(slicer2autoscoperNode)
+            tfm = self.applyPVol2AutTransform(tfm, pvol2autNode)
+            slicer.mrmlScene.RemoveNode(pvol2autNode)
+
+            # Apply RAS to LPS transform
+            tfmR = vtk.vtkMatrix3x3()
+            vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(tfm, tfmR)
+
+            RAS2LPS = vtk.vtkMatrix3x3()
+            RAS2LPS.SetElement(0, 0, -1)
+            RAS2LPS.SetElement(1, 1, -1)
+            vtk.vtkMatrix3x3.Multiply3x3(tfmR, RAS2LPS, tfmR)
+            vtkAddon.vtkAddonMathUtilities.SetOrientationMatrix(tfmR, tfm)
 
             traDir = os.path.join(outputDir, trackingSubDir)
             if not os.path.exists(traDir):
@@ -1448,13 +1457,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     def applyOrigin2DicomTransform(
         transform: vtk.vtkMatrix4x4,
         origin2DicomTransformNode: slicer.vtkMRMLLinearTransformNode,
-        applyDicom2Origin: bool = False,
     ) -> vtk.vtkMatrix4x4:
         """Utility function for converting a transform between the dicom centered and
         world centered coordinate systems."""
-        if applyDicom2Origin:
-            origin2DicomTransformNode.Inverse()
-
         origin2DicomTransformMatrix = vtk.vtkMatrix4x4()
         origin2DicomTransformNode.GetMatrixTransformToParent(origin2DicomTransformMatrix)
 
@@ -1463,54 +1468,48 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         return transform
 
     @staticmethod
-    def applySlicer2AutoscoperTransform(
+    def applyPVol2AutTransform(
         transform: vtk.vtkMatrix4x4,
-        slicer2AutoscoperNode: slicer.vtkMRMLLinearTransformNode,
-        applyAutoscoper2Slicer: bool = False,
+        PVol2AutNode: slicer.vtkMRMLLinearTransformNode,
     ) -> vtk.vtkMatrix4x4:
         """Utility function for converting a transform between the Slicer and Autoscoper coordinate systems."""
 
-        if applyAutoscoper2Slicer:
-            slicer2AutoscoperNode.Inverse()
-
-        slicer2Autoscoper = vtk.vtkMatrix4x4()
-        slicer2AutoscoperNode.GetMatrixTransformToParent(slicer2Autoscoper)
+        pvol2aut = vtk.vtkMatrix4x4()
+        PVol2AutNode.GetMatrixTransformToParent(pvol2aut)
 
         # Extract the rotation matrices so we are not affecting the translation vector
         transformR = vtk.vtkMatrix3x3()
         vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(transform, transformR)
 
-        slicer2AutoscoperR = vtk.vtkMatrix3x3()
-        vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(slicer2Autoscoper, slicer2AutoscoperR)
+        pvol2autR = vtk.vtkMatrix3x3()
+        vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(pvol2aut, pvol2autR)
 
-        vtk.vtkMatrix3x3.Multiply3x3(slicer2AutoscoperR, transformR, transformR)
+        vtk.vtkMatrix3x3.Multiply3x3(pvol2autR, transformR, transformR)
 
         vtkAddon.vtkAddonMathUtilities.SetOrientationMatrix(transformR, transform)
 
         # Apply the translation vector
         for i in range(3):
-            transform.SetElement(i, 3, transform.GetElement(i, 3) + slicer2Autoscoper.GetElement(i, 3))
+            transform.SetElement(i, 3, transform.GetElement(i, 3) + pvol2aut.GetElement(i, 3))
 
         return transform
 
     @staticmethod
-    def createAndAddSlicer2AutoscoperTransformNode(
+    def createAndAddPVol2AutTransformNode(
         volumeNode: slicer.vtkMRMLVolumeNode,
     ) -> slicer.vtkMRMLLinearTransformNode:
         """Utility function for creating a slicer2Autoscoper transform for the given volume."""
-        # Slicer 2 Autoscoper Transform
-        # https://github.com/BrownBiomechanics/Autoscoper/issues/280
         bounds = [0] * 6
         volumeNode.GetRASBounds(bounds)
         volSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
 
-        slicer2autoscoper = vtk.vtkMatrix4x4()
-        slicer2autoscoper.Identity()
-        # Rotation matrix for a 180 y-axis rotation
-        slicer2autoscoper.SetElement(0, 0, -slicer2autoscoper.GetElement(0, 0))
-        slicer2autoscoper.SetElement(2, 2, -slicer2autoscoper.GetElement(2, 2))
-        slicer2autoscoper.SetElement(1, 3, -volSize[1])  # Offset -Y
+        pvol2aut = vtk.vtkMatrix4x4()
+        pvol2aut.Identity()
+        # Rotation matrix for a 180 x-axis rotation
+        pvol2aut.SetElement(1, 1, -pvol2aut.GetElement(1, 1))
+        pvol2aut.SetElement(2, 2, -pvol2aut.GetElement(2, 2))
+        pvol2aut.SetElement(1, 3, -volSize[1])  # Offset -Y
 
-        slicer2autoscoperNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
-        slicer2autoscoperNode.SetMatrixTransformToParent(slicer2autoscoper)
-        return slicer2autoscoperNode
+        pvol2autoNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+        pvol2autoNode.SetMatrixTransformToParent(pvol2aut)
+        return pvol2autoNode
