@@ -751,30 +751,29 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             transformSubDir = self.ui.tfmSubDir.text
 
             vols = glob.glob(os.path.join(mainOutputDir, volumeSubDir, "*.tif"))
-            tfms = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*.tfm"))
+            tfms_t = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*_t.tfm"))
+            tfms_scale = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*_scale.tfm"))
 
             if len(vols) == 0:
                 raise Exception("No data found")
                 return
 
-            # Match the volumes and transforms
-            paired = {}
-            for vol in vols:
-                volName = os.path.basename(vol)
-                for tfm in tfms:
-                    tfmName = os.path.basename(tfm)
-                    if volName.split(".")[0] == tfmName.split(".")[0]:
-                        paired[vol] = tfm
-                        break
-                if vol not in paired:
-                    raise Exception(f"No transform found for {vol}")
-                    return
+            if len(vols) != len(tfms_t) != len(tfms_scale):
+                raise ValueError(
+                    "Volume TFM mismatch, missing scale or translation tfm files! "
+                    f"vols: ({len(vols)}) != tfms_t: ({len(tfms_t)}) != tfms_scale: ({len(tfms_scale)})"
+                )
+                return
 
-            for vol, tfm in paired.items():
-                volumeNode = slicer.util.loadVolume(vol)
-                transformNode = slicer.util.loadTransform(tfm)
-                volumeNode.SetAndObserveTransformNodeID(transformNode.GetID())
+            for i in range(len(vols)):
+                volumeNode = slicer.util.loadVolume(vols[i])
+                translationNode = slicer.util.loadTransform(tfms_t[i])
+                scaleNode = slicer.util.loadTransform(tfms_scale[i])
+
+                volumeNode.SetAndObserveTransformNodeID(scaleNode.GetID())
+                scaleNode.SetAndObserveTransformNodeID(translationNode.GetID())
                 self.logic.showVolumeIn3D(volumeNode)
+
         slicer.util.messageBox("Success!")
 
     def onManualVRGGen(self):
@@ -1047,22 +1046,25 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             segmentName = segmentationNode.GetSegmentation().GetSegment(segmentID).GetName()
             segmentVolume = SubVolumeExtraction.extractSubVolume(volumeNode, segmentationNode, segmentID)
             segmentVolume.SetName(segmentName)
-            filename = os.path.join(outputDir, volumeSubDir, segmentName + ".tif")
+            tifFilename = os.path.join(outputDir, volumeSubDir, segmentName + ".tif")
             IO.castVolumeForTIFF(segmentVolume)
 
             # Remove spacing before writing volume out
             segmentVolume.DisableModifiedEventOn()
             originalSpacing = segmentVolume.GetSpacing()
             segmentVolume.SetSpacing([1.0, 1.0, 1.0])
-            IO.writeVolume(segmentVolume, filename)
+            IO.writeVolume(segmentVolume, tifFilename)
             # Restore spacing
             segmentVolume.SetSpacing(originalSpacing)
             segmentVolume.DisableModifiedEventOff()
 
+            transformFilenameBase = os.path.join(outputDir, transformSubDir, segmentName)
+
             origin = segmentVolume.GetOrigin()
+            IO.writeTFMFile(f"{transformFilenameBase}_t.tfm", [1.0, 1.0, 1.0], origin)
             spacing = segmentVolume.GetSpacing()
-            filename = os.path.join(outputDir, transformSubDir, segmentName + ".tfm")
-            IO.writeTFMFile(filename, spacing, origin)
+            IO.writeTFMFile(f"{transformFilenameBase}_scale.tfm", spacing, [0.0, 0.0, 0.0])
+            IO.writeTFMFile(f"{transformFilenameBase}.tfm", spacing, origin)
             self.showVolumeIn3D(segmentVolume)
 
             # Write TRA
