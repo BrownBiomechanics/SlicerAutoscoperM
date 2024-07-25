@@ -441,6 +441,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             mainOutputDir = self.ui.mainOutputSelector.currentPath
             tiffSubDir = self.ui.tiffSubDir.text
             tfmSubDir = self.ui.tfmSubDir.text
+            trackingSubDir = self.ui.trackingSubDir.text
+            modelSubDir = self.ui.modelSubDir.text
             segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
             if not self.logic.validateInputs(
                 volumeNode=volumeNode,
@@ -448,12 +450,18 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir=mainOutputDir,
                 volumeSubDir=tiffSubDir,
                 transformSubDir=tfmSubDir,
+                trackingSubDir=trackingSubDir,
+                modelSubDir=modelSubDir,
             ):
                 raise ValueError("Invalid inputs")
                 return
 
             self.logic.createPathsIfNotExists(
-                mainOutputDir, os.path.join(mainOutputDir, tiffSubDir), os.path.join(mainOutputDir, tfmSubDir)
+                mainOutputDir,
+                os.path.join(mainOutputDir, tiffSubDir),
+                os.path.join(mainOutputDir, tfmSubDir),
+                os.path.join(mainOutputDir, trackingSubDir),
+                os.path.join(mainOutputDir, modelSubDir),
             )
             self.ui.progressBar.setValue(0)
             self.ui.progressBar.setMaximum(100)
@@ -463,6 +471,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir,
                 volumeSubDir=tiffSubDir,
                 transformSubDir=tfmSubDir,
+                trackingSubDir=trackingSubDir,
+                modelSubDir=modelSubDir,
                 progressCallback=self.updateProgressBar,
             )
         slicer.util.messageBox("Success!")
@@ -1007,6 +1017,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         volumeSubDir: str = "Volumes",
         transformSubDir: str = "Transforms",
         trackingSubDir: str = "Tracking",
+        modelSubDir: str = "Models",
         progressCallback: Optional[callable] = None,
     ) -> bool:
         """
@@ -1059,7 +1070,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             segmentVolume.DisableModifiedEventOff()
 
             transformFilenameBase = os.path.join(outputDir, transformSubDir, segmentName)
-
             origin = segmentVolume.GetOrigin()
             IO.writeTFMFile(f"{transformFilenameBase}_t.tfm", [1.0, 1.0, 1.0], origin)
             spacing = segmentVolume.GetSpacing()
@@ -1076,6 +1086,10 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             dicom2autNode = self.createAndAddDicom2AutTransformNode(origin, pvol2autNode)
             dicom2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-DICOM2AUT.tfm")
             slicer.util.exportNode(dicom2autNode, dicom2autFilename)
+
+            stlFilename = os.path.join(outputDir, modelSubDir, f"AUT_{segmentVolume.GetName()}.stl")
+            self.exportSTLFromSegment(segmentationNode, segmentID, stlFilename, dicom2autNode.GetTransformToParent())
+
             slicer.mrmlScene.RemoveNode(dicom2autNode)
 
             # Create TRA file
@@ -1115,6 +1129,36 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         # Reset the slice field of views
         slicer.app.layoutManager().resetSliceViews()
         return True
+
+    @staticmethod
+    def exportSTLFromSegment(
+        segmentationNode: slicer.vtkMRMLSegmentationNode,
+        segmentID: str,
+        filename: str,
+        transform: Optional[vtk.vtkAbstractTransform] = None,
+    ):
+        """Utility functions for exporting a segment as an STL. Optionally takes a vtk transform."""
+        if not segmentationNode.CreateClosedSurfaceRepresentation():
+            raise ValueError(
+                f"Failed to generate the closed surface representation from segmentation: {segmentationNode.GetName()}"
+            )
+
+        polyData = vtk.vtkPolyData()
+        if not segmentationNode.GetClosedSurfaceRepresentation(segmentID, polyData):
+            raise ValueError(f"Failed to get PolyData for segmentationNode {segmentationNode.GetName()}")
+
+        if transform is not None:
+            transformFilter = vtk.vtkTransformPolyDataFilter()
+            transformFilter.SetInputData(polyData)
+            transformFilter.SetTransform(transform)
+            transformFilter.Update()
+            polyData = transformFilter.GetOutput()
+
+        stlNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
+        stlNode.SetAndObservePolyData(polyData)
+
+        slicer.util.exportNode(stlNode, filename)
+        slicer.mrmlScene.RemoveNode(stlNode)
 
     @staticmethod
     def showVolumeIn3D(volumeNode: slicer.vtkMRMLVolumeNode):
@@ -1476,12 +1520,12 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     @staticmethod
     def applyPVol2AutTransform(
         transform: vtk.vtkMatrix4x4,
-        PVol2AutNode: slicer.vtkMRMLLinearTransformNode,
+        pVol2AutNode: slicer.vtkMRMLLinearTransformNode,
     ) -> vtk.vtkMatrix4x4:
         """Utility function for converting a transform between the Slicer and Autoscoper coordinate systems."""
 
         pvol2aut = vtk.vtkMatrix4x4()
-        PVol2AutNode.GetMatrixTransformToParent(pvol2aut)
+        pVol2AutNode.GetMatrixTransformToParent(pvol2aut)
 
         # Extract the rotation matrices so we are not affecting the translation vector
         transformR = vtk.vtkMatrix3x3()
@@ -1509,16 +1553,16 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         volumeNode.GetRASBounds(bounds)
         volSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
 
-        pvol2aut = vtk.vtkMatrix4x4()
-        pvol2aut.Identity()
+        pVol2Aut = vtk.vtkMatrix4x4()
+        pVol2Aut.Identity()
         # Rotation matrix for a 180 x-axis rotation
-        pvol2aut.SetElement(1, 1, -pvol2aut.GetElement(1, 1))
-        pvol2aut.SetElement(2, 2, -pvol2aut.GetElement(2, 2))
-        pvol2aut.SetElement(1, 3, -volSize[1])  # Offset -Y
+        pVol2Aut.SetElement(1, 1, -pVol2Aut.GetElement(1, 1))
+        pVol2Aut.SetElement(2, 2, -pVol2Aut.GetElement(2, 2))
+        pVol2Aut.SetElement(1, 3, -volSize[1])  # Offset -Y
 
-        pvol2autoNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
-        pvol2autoNode.SetMatrixTransformToParent(pvol2aut)
-        return pvol2autoNode
+        pVol2AutNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+        pVol2AutNode.SetMatrixTransformToParent(pVol2Aut)
+        return pVol2AutNode
 
     @staticmethod
     def createAndAddDicom2AutTransformNode(
