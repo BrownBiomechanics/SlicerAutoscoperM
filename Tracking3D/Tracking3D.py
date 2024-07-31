@@ -1,9 +1,8 @@
 from typing import Optional
 
-import Elastix
 import slicer
 import vtk
-from slicer import vtkMRMLMarkupsROINode, vtkMRMLScalarVolumeNode, vtkMRMLSequenceNode, vtkMRMLTransformNode
+from slicer import vtkMRMLScalarVolumeNode, vtkMRMLSequenceNode, vtkMRMLTransformNode
 from slicer.i18n import tr as _
 from slicer.parameterNodeWrapper import parameterNodeWrapper
 from slicer.ScriptedLoadableModule import (
@@ -16,6 +15,16 @@ from Tracking3DLib.TreeNode import TreeNode
 
 import AutoscoperM
 
+try:
+    # Not a big fan of checking if Elastix is installed this way...
+    # But running hasattr(itk, "ElastixRegistrationMethod") is PAINFULLY slow
+    from itk import ElastixRegistrationMethod
+
+    del ElastixRegistrationMethod
+    import itk
+except ImportError:
+    slicer.util.pip_install("itk-elastix")
+    import itk
 
 #
 # Tracking3D
@@ -294,7 +303,6 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         Called when the logic class is instantiated. Can be used for initializing member variables.
         """
         ScriptedLoadableModuleLogic.__init__(self)
-        self.elastixLogic = Elastix.ElastixLogic()
         self.autoscoperLogic = AutoscoperM.AutoscoperMLogic()
         self.cancelRequested = False
         self.isRunning = False
@@ -302,60 +310,92 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
     def getParameterNode(self):
         return Tracking3DParameterNode(super().getParameterNode())
 
-    def createROIFromPV(self, body: vtkMRMLScalarVolumeNode, padding: int = 0) -> vtkMRMLMarkupsROINode:
-        """Creates a ROI from a volume."""
-        # TODO: Expose padding to GUI -> Maybe independent X,Y,Z values?
-        roiNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
-        cropVolumeParameters = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLCropVolumeParametersNode")
-        cropVolumeParameters.SetInputVolumeNodeID(body.GetID())
-        cropVolumeParameters.SetROINodeID(roiNode.GetID())
-        slicer.modules.cropvolume.logic().SnapROIToVoxelGrid(cropVolumeParameters)
-        slicer.modules.cropvolume.logic().FitROIToInputVolume(cropVolumeParameters)
-        slicer.mrmlScene.RemoveNode(cropVolumeParameters)
+    @staticmethod
+    def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLTransformNode:
+        from math import cos, sin
 
-        size = list(roiNode.GetSize())
-        size = [s + padding for s in size]
-        roiNode.SetSize(size)
-        return roiNode
+        import numpy as np
 
-    def cropCT(self, CT: vtkMRMLScalarVolumeNode, roi: vtkMRMLMarkupsROINode) -> vtkMRMLScalarVolumeNode:
-        """Crops a volume with a ROI."""
-        cropVolumeLogic = slicer.modules.cropvolume.logic()
-        cropVolumeParameterNode = slicer.vtkMRMLCropVolumeParametersNode()
-        cropVolumeParameterNode.SetROINodeID(roi.GetID())
-        cropVolumeParameterNode.SetInputVolumeNodeID(CT.GetID())
-        cropVolumeParameterNode.SetVoxelBased(True)
-        cropVolumeLogic.Apply(cropVolumeParameterNode)
-        return slicer.mrmlScene.GetNodeByID(cropVolumeParameterNode.GetOutputVolumeNodeID())
+        transformParameters = [float(val) for val in paramObj.GetParameter(0, "TransformParameters")]
+        rx, ry, rz = transformParameters[0:3]
+        tx, ty, tz = transformParameters[3:]
+        centerOfRotation = [float(val) for val in paramObj.GetParameter(0, "CenterOfRotationPoint")]
+
+        rotX = np.array([[1.0, 0.0, 0.0], [0.0, cos(rx), -sin(rx)], [0.0, sin(rx), cos(rx)]])
+        rotY = np.array([[cos(ry), 0.0, sin(ry)], [0.0, 1.0, 0.0], [-sin(ry), 0.0, cos(ry)]])
+        rotZ = np.array([[cos(rz), -sin(rz), 0.0], [sin(rz), cos(rz), 0.0], [0.0, 0.0, 1.0]])
+
+        fixedToMovingDirection = np.dot(np.dot(rotZ, rotX), rotY)
+
+        fixedToMoving = np.eye(4)
+        fixedToMoving[0:3, 0:3] = fixedToMovingDirection
+
+        offset = np.array([tx, ty, tz]) + np.array(centerOfRotation)
+        offset[0] -= np.dot(fixedToMovingDirection[0, :], np.array(centerOfRotation))
+        offset[1] -= np.dot(fixedToMovingDirection[1, :], np.array(centerOfRotation))
+        offset[2] -= np.dot(fixedToMovingDirection[2, :], np.array(centerOfRotation))
+        fixedToMoving[0:3, 3] = offset
+        ras2lps = np.array([[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        fixedToMoving = np.dot(np.dot(ras2lps, fixedToMoving), ras2lps)
+
+        tfmNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTransformNode")
+        tfmNode.SetMatrixTransformToParent(slicer.util.vtkMatrixFromArray(fixedToMoving))
+        return tfmNode
 
     def registerRigidBody(
         self,
         CT: vtkMRMLScalarVolumeNode,
-        body: vtkMRMLScalarVolumeNode,
-        outputTransform: vtkMRMLTransformNode,
+        partialVolume: vtkMRMLScalarVolumeNode,
+        transformNode: vtkMRMLTransformNode,
     ):
-        """Registers a partial volume to a CT scan, uses SlicerElastix."""
-        roi = self.createROIFromPV(body)
-        body.SetAndObserveTransformNodeID(outputTransform.GetID())
-        roi.SetAndObserveTransformNodeID(outputTransform.GetID())
+        """Registers a partial volume to a CT scan, uses ITKElastix."""
+        from tempfile import NamedTemporaryFile
 
-        croppedCT = self.cropCT(CT, roi)
+        # Apply the initial guess if there is one
+        partialVolume.SetAndObserveTransformNodeID(None)
+        partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+        partialVolume.HardenTransform()
 
-        self.elastixLogic.registerVolumes(
-            fixedVolumeNode=croppedCT,
-            movingVolumeNode=body,
-            parameterFilenames=[self.parameterFile],
-            outputVolumeNode=None,
-            outputTransformNode=outputTransform,
-            fixedVolumeMaskNode=None,
-            movingVolumeMaskNode=None,
-            forceDisplacementFieldOutputTransform=False,
-            initialTransformNode=None,
-        )
+        # Register with Elastix
+        with NamedTemporaryFile(suffix=".mha") as movingTempFile, NamedTemporaryFile(suffix=".mha") as fixedTempFile:
+            slicer.util.saveNode(CT, movingTempFile.name)
+            slicer.util.saveNode(partialVolume, fixedTempFile.name)
+
+            movingITKImage = itk.imread(movingTempFile.name, itk.F)
+            fixedITKImage = itk.imread(fixedTempFile.name, itk.F)
+
+            paramObj = itk.ParameterObject.New()
+            paramObj.AddParameterMap(paramObj.GetDefaultParameterMap("rigid"))
+            # paramObj.AddParameterFile(self.parameterFile)
+
+            elastixObj = itk.ElastixRegistrationMethod.New(fixedITKImage, movingITKImage)
+            elastixObj.SetParameterObject(paramObj)
+            elastixObj.SetNumberOfThreads(16)
+            elastixObj.LogToConsoleOn()
+            try:
+                elastixObj.UpdateLargestPossibleRegion()
+            except Exception as e:
+                # Remove the hardened initial guess and then throw the exception
+                transformNode.Inverse()
+                partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+                partialVolume.HardenTransform()
+                transformNode.Inverse()
+                raise e
+
+        resultTransform = self.parameterObject2SlicerTransform(elastixObj.GetTransformParameterObject())
+
+        # Remove the hardened initial guess
+        transformNode.Inverse()
+        partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+        partialVolume.HardenTransform()
+        transformNode.Inverse()
+
+        # Combine the initial and result transforms
+        transformNode.SetAndObserveTransformNodeID(resultTransform.GetID())
+        transformNode.HardenTransform()
 
         # Clean up
-        slicer.mrmlScene.RemoveNode(croppedCT)
-        slicer.mrmlScene.RemoveNode(roi)
+        slicer.mrmlScene.RemoveNode(resultTransform)
 
     def registerSequence(
         self,
@@ -399,40 +439,8 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
 
                     node.dataNode.SetAndObserveTransformNodeID(node.getTransform(idx).GetID())
 
-                # Use the output of the roots children as the initial guess for next frame
                 if idx != endFrame - 1:  # Unless its the last frame
-                    [node.copyTransformToNextFrame(idx) for node in rootNode.childNodes]
-
+                    rootNode.copyTransformToNextFrame(idx)
         finally:
             self.isRunning = False
             self.cancelRequested = False
-
-    def evalulateMetric(
-        self, fixedImage: vtkMRMLScalarVolumeNode, movingImage: vtkMRMLScalarVolumeNode
-    ) -> dict[str, float]:
-        """Computes several metrics for the similarity of the fixed and moving images."""
-        import SimpleITK as sitk
-        import sitkUtils
-
-        fixedSITKImg = sitkUtils.PullVolumeFromSlicer(fixedImage)
-        movingSITKImg = sitkUtils.PullVolumeFromSlicer(movingImage)
-        castFilter = sitk.CastImageFilter()
-        castFilter.SetOutputPixelType(sitk.sitkFloat64)
-        fixedSITKImg = castFilter.Execute(fixedSITKImg)
-        movingSITKImg = castFilter.Execute(movingSITKImg)
-        R = sitk.ImageRegistrationMethod()
-        results = {}
-
-        R.SetMetricAsMattesMutualInformation(64)  # 64 bins
-        results["mutualInformation"] = R.MetricEvaluate(fixedSITKImg, movingSITKImg)
-
-        R.SetMetricAsMeanSquares()
-        results["meanSquares"] = R.MetricEvaluate(fixedSITKImg, movingSITKImg)
-
-        R.SetMetricAsCorrelation()
-        results["correlation"] = R.MetricEvaluate(fixedSITKImg, movingSITKImg)
-
-        R.SetMetricAsJointHistogramMutualInformation(64)
-        results["histogramMutualInformation"] = R.MetricEvaluate(fixedSITKImg, movingSITKImg)
-
-        return results
