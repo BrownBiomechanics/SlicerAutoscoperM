@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Tracking3D</class>
+ <widget class="qMRMLWidget" name="Tracking3D">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>785</width>
+    <height>561</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
+     <property name="text">
+      <string>Registration</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Frames</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="5">
+       <widget class="qMRMLNodeComboBox" name="inputSelectorCT">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Pick the input to the algorithm.</string>
+        </property>
+        <property name="nodeTypes">
+         <stringlist notr="true">
+          <string>vtkMRMLScalarVolumeNode</string>
+         </stringlist>
+        </property>
+        <property name="showChildNodeTypes">
+         <bool>false</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>inputVolumeSequence</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QSpinBox" name="startFrame">
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" colspan="5">
+       <widget class="qMRMLSubjectHierarchyComboBox" name="SubjectHierarchyComboBox">
+        <property name="includeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="includeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Input CT Sequence:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1" colspan="5">
+       <widget class="QPushButton" name="applyButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Run the algorithm.</string>
+        </property>
+        <property name="text">
+         <string>Apply</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="onlyTrackRootNodeCheckBox">
+        <property name="text">
+         <string>Track Root Node Only</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Hierarchy:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="4">
+       <widget class="ctkRangeSlider" name="frameSlider">
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="minimumValue">
+         <number>0</number>
+        </property>
+        <property name="maximumValue">
+         <number>0</number>
+        </property>
+        <property name="symmetricMoves">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="5">
+       <widget class="QSpinBox" name="endFrame">
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="5">
+       <widget class="QPushButton" name="initHierarchyButton">
+        <property name="toolTip">
+         <string/>
+        </property>
+        <property name="text">
+         <string>Initialize Hierarchy Transforms</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton">
+     <property name="text">
+      <string>IO</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="1" column="1">
+       <widget class="QPushButton" name="exportButton">
+        <property name="text">
+         <string>Export Transforms</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="importButton">
+        <property name="text">
+         <string>Import Transforms</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0" colspan="2">
+       <widget class="ctkPathLineEdit" name="ioDir">
+        <property name="toolTip">
+         <string>Tracking IO Directory</string>
+        </property>
+        <property name="filters">
+         <set>ctkPathLineEdit::Dirs|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>qMRMLNodeComboBox</class>
+   <extends>QWidget</extends>
+   <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLWidget</class>
+   <extends>QWidget</extends>
+   <header>qMRMLWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLSubjectHierarchyComboBox</class>
+   <extends>ctkComboBox</extends>
+   <header>qMRMLSubjectHierarchyComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ctkComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkPathLineEdit</class>
+   <extends>QWidget</extends>
+   <header>ctkPathLineEdit.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkRangeSlider</class>
+   <extends>QSlider</extends>
+   <header>ctkRangeSlider.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>Tracking3D</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>inputSelectorCT</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>392</x>
+     <y>280</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>468</x>
+     <y>89</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>Tracking3D</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>SubjectHierarchyComboBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>392</x>
+     <y>280</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>392</x>
+     <y>412</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>frameSlider</sender>
+   <signal>minimumValueChanged(int)</signal>
+   <receiver>startFrame</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>196</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>frameSlider</sender>
+   <signal>maximumValueChanged(int)</signal>
+   <receiver>endFrame</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>742</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>endFrame</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>frameSlider</receiver>
+   <slot>setMaximumValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>742</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>startFrame</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>frameSlider</receiver>
+   <slot>setMinimumValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>196</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>469</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

@@ -44,6 +44,7 @@ add_subdirectory(AutoscoperM)
 add_subdirectory(TrackingEvaluation)
 add_subdirectory(CalculateDataIntensityDensity)
 add_subdirectory(VirtualRadiographGeneration)
+add_subdirectory(Tracking3D)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
