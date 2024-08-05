@@ -475,7 +475,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 modelSubDir=modelSubDir,
                 progressCallback=self.updateProgressBar,
             )
-        slicer.util.messageBox("Success!")
+            # Load TIFFs and Transforms back for visualization
+            self.onLoadPV()
+            # onLoadPV has a call to the "success" display, remove the one here so the user doesn't get two.
 
     def onGenerateVRG(self):
         """
@@ -1075,7 +1077,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             spacing = segmentVolume.GetSpacing()
             IO.writeTFMFile(f"{transformFilenameBase}_scale.tfm", spacing, [0.0, 0.0, 0.0])
             IO.writeTFMFile(f"{transformFilenameBase}.tfm", spacing, origin)
-            self.showVolumeIn3D(segmentVolume)
 
             # Create PVOL2AUT transform
             pvol2autNode = self.createAndAddPVol2AutTransformNode(segmentVolume)
@@ -1124,6 +1125,9 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
+
+            # Remove the segment volume
+            slicer.mrmlScene.RemoveNode(segmentVolume)
         # Set the  volumeNode to be the active volume
         slicer.app.applicationLogic().GetSelectionNode().SetActiveVolumeID(volumeNode.GetID())
         # Reset the slice field of views
