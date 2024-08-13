@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 import slicer
@@ -76,35 +77,44 @@ class TreeNode:
 
     def _applyTransform(self, transform: slicer.vtkMRMLTransformNode, idx: int) -> None:
         """Applies and hardends a transform node to the transform in the sequence at the provided index."""
-        if idx < self.transformSequence.GetNumberOfDataNodes():
-            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-            current_transform.SetAndObserveTransformNodeID(transform.GetID())
-            current_transform.HardenTransform()
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return
+        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform.SetAndObserveTransformNodeID(transform.GetID())
+        current_transform.HardenTransform()
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
-        if idx < self.transformSequence.GetNumberOfDataNodes():
-            return self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-        return None
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return None
+        return self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
 
     def setTransformFromNode(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
         """Sets the transform for the provided index."""
-        if idx < self.transformSequence.GetNumberOfDataNodes():
-            mat = vtk.vtkMatrix4x4()
-            transform.GetMatrixTransformToParent(mat)
-            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-            current_transform.SetMatrixTransformToParent(mat)
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return
+        mat = vtk.vtkMatrix4x4()
+        transform.GetMatrixTransformToParent(mat)
+        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform.SetMatrixTransformToParent(mat)
 
     def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:
-        if idx < self.transformSequence.GetNumberOfDataNodes():
-            current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-            current_transform.SetMatrixTransformToParent(transform)
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return
+        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform.SetMatrixTransformToParent(transform)
 
     def applyTransformToChildren(self, idx: int) -> None:
         """Applies the transform at the provided index to all children of this node."""
-        if idx < self.transformSequence.GetNumberOfDataNodes():
-            applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-            [childNode.setTransform(applyTransform, idx) for childNode in self.childNodes]
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return
+        applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        [childNode.setTransformFromNode(applyTransform, idx) for childNode in self.childNodes]
 
     def copyTransformToNextFrame(self, currentIdx: int) -> None:
         """Copies the transform at the provided index to the next frame."""
@@ -138,4 +148,4 @@ class TreeNode:
         tra = np.loadtxt(filename, delimiter=",")
         tra.resize(tra.shape[0], 4, 4)
         for idx in range(tra.shape[0]):
-            self.setTransformFromMatrix(self.autoscoperLogic.numpyToVtk(tra[idx, :, :]), idx)
+            self.setTransformFromMatrix(slicer.util.vtkMatrixFromArray(tra[idx, :, :]), idx)
