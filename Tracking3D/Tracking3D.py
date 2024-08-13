@@ -11,20 +11,10 @@ from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModuleWidget,
 )
 from slicer.util import VTKObservationMixin
-from Tracking3DLib.TreeNode import TreeNode
 
 import AutoscoperM
+from Tracking3DLib.TreeNode import TreeNode
 
-try:
-    # Not a big fan of checking if Elastix is installed this way...
-    # But running hasattr(itk, "ElastixRegistrationMethod") is PAINFULLY slow
-    from itk import ElastixRegistrationMethod
-
-    del ElastixRegistrationMethod
-    import itk
-except ImportError:
-    slicer.util.pip_install("itk-elastix")
-    import itk
 
 #
 # Tracking3D
@@ -79,7 +69,7 @@ class Tracking3DParameterNode:
 
     """
 
-    # inputHierarchyRootID: str
+    inputHierarchyRootID: int
     inputVolumeSequence: vtkMRMLSequenceNode
 
 
@@ -364,12 +354,55 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         self.autoscoperLogic = AutoscoperM.AutoscoperMLogic()
         self.cancelRequested = False
         self.isRunning = False
+        self._itk = None
+
+    @property
+    def itk(self):
+        import logging
+
+        if self._itk is None:
+            logging.info("Importing itk...")
+            self._itk = self.importITKElastix()
+        return self._itk
+
+    def importITKElastix(self):
+        import logging
+
+        try:
+            # Since running hasattr(itk, "ElastixRegistrationMethod") is slow,
+            # check if Elastix is installed by attempting to import ElastixRegistrationMethod
+            from itk import ElastixRegistrationMethod
+
+            del ElastixRegistrationMethod
+        except ImportError:
+            self.installITKElastix()
+
+        import itk
+
+        logging.info(f"ITK imported correctly: itk {itk.__version__}")
+        return itk
+
+    @staticmethod
+    def installITKElastix():
+        import logging
+
+        if not slicer.util.confirmOkCancelDisplay(
+            "ITK-elastix will be downloaded and installed now. This process may take a minute",
+            dontShowAgainSettingsKey="Tracking3D/DontShowITKElastixInstallWarning",
+        ):
+            logging.info("ITK-elasitx install aborted by user.")
+            return None
+        slicer.util.pip_install("itk-elastix")
+        import itk
+
+        logging.info(f"Installed itk version {itk.__version__}")
+        return itk
 
     def getParameterNode(self):
         return Tracking3DParameterNode(super().getParameterNode())
 
     @staticmethod
-    def parameterObject2SlicerTransform(paramObj: itk.ParameterObject) -> slicer.vtkMRMLTransformNode:
+    def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLTransformNode:
         from math import cos, sin
 
         import numpy as np
@@ -419,26 +452,26 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
             slicer.util.saveNode(CT, movingTempFile.name)
             slicer.util.saveNode(partialVolume, fixedTempFile.name)
 
-            movingITKImage = itk.imread(movingTempFile.name, itk.F)
-            fixedITKImage = itk.imread(fixedTempFile.name, itk.F)
+            movingITKImage = self.itk.imread(movingTempFile.name, self.itk.F)
+            fixedITKImage = self.itk.imread(fixedTempFile.name, self.itk.F)
 
-            paramObj = itk.ParameterObject.New()
+            paramObj = self.itk.ParameterObject.New()
             paramObj.AddParameterMap(paramObj.GetDefaultParameterMap("rigid"))
             # paramObj.AddParameterFile(self.parameterFile)
 
-            elastixObj = itk.ElastixRegistrationMethod.New(fixedITKImage, movingITKImage)
+            elastixObj = self.itk.ElastixRegistrationMethod.New(fixedITKImage, movingITKImage)
             elastixObj.SetParameterObject(paramObj)
             elastixObj.SetNumberOfThreads(16)
             elastixObj.LogToConsoleOn()  # TODO: Update this to log to file instead
             try:
                 elastixObj.UpdateLargestPossibleRegion()
-            except Exception as e:
+            except Exception:
                 # Remove the hardened initial guess and then throw the exception
                 transformNode.Inverse()
                 partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
                 partialVolume.HardenTransform()
                 transformNode.Inverse()
-                raise e
+                raise
 
         resultTransform = self.parameterObject2SlicerTransform(elastixObj.GetTransformParameterObject())
 

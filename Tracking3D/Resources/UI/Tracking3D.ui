@@ -78,6 +78,9 @@
         <property name="excludeNodeAttributeNamesFilter">
          <stringlist notr="true"/>
         </property>
+        <!-- <property name="SlicerParameterName" stdset="0"> -->
+        <!--  <string>inputHierarchyRootID</string> -->
+        <!-- </property> -->
        </widget>
       </item>
       <item row="3" column="0">
