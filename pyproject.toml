@@ -51,7 +51,7 @@ isort.known-first-party = [
   "AutoscoperMLib",
   "TrackingEvaluation",
   "TrackingEvaluationLib",
-  "Tracking3D",
-  "Tracking3DLib",
+  "Hierarchical3DRegistration",
+  "Hierarchical3DRegistrationLib",
 ]
 pylint.max-args = 7

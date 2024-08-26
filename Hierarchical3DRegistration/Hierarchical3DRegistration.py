@@ -13,20 +13,20 @@ from slicer.ScriptedLoadableModule import (
 from slicer.util import VTKObservationMixin
 
 import AutoscoperM
-from Tracking3DLib.TreeNode import TreeNode
+from Hierarchical3DRegistrationLib.TreeNode import TreeNode
 
 
 #
-# Tracking3D
+# Hierarchical3DRegistration
 #
-class Tracking3D(ScriptedLoadableModule):
+class Hierarchical3DRegistration(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
     """
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = _("Tracking3D")
+        self.parent.title = _("Hierarchical3DRegistration")
         self.parent.categories = [
             "Tracking",
         ]
@@ -58,10 +58,10 @@ class Tracking3D(ScriptedLoadableModule):
 
 
 #
-# Tracking3DParameterNode
+# Hierarchical3DRegistrationParameterNode
 #
 @parameterNodeWrapper
-class Tracking3DParameterNode:
+class Hierarchical3DRegistrationParameterNode:
     """
     The parameters needed by module.
 
@@ -74,9 +74,9 @@ class Tracking3DParameterNode:
 
 
 #
-# Tracking3DWidget
+# Hierarchical3DRegistrationWidget
 #
-class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """Uses ScriptedLoadableModuleWidget base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
     """
@@ -100,7 +100,7 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/Tracking3D.ui"))
+        uiWidget = slicer.util.loadUI(self.resourcePath("UI/Hierarchical3DRegistration.ui"))
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -111,7 +111,7 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
-        self.logic = Tracking3DLogic()
+        self.logic = Hierarchical3DRegistrationLogic()
         self.logic.parameterFile = self.resourcePath("ParameterFiles/rigid.txt")
 
         # Connections
@@ -181,7 +181,7 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if firstSequenceNode:
                 self._parameterNode.inputVolumeSequence = firstSequenceNode
 
-    def setParameterNode(self, inputParameterNode: Optional[Tracking3DParameterNode]) -> None:
+    def setParameterNode(self, inputParameterNode: Optional[Hierarchical3DRegistrationParameterNode]) -> None:
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -332,11 +332,11 @@ class Tracking3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 #
-# Tracking3DLogic
+# Hierarchical3DRegistrationLogic
 #
 
 
-class Tracking3DLogic(ScriptedLoadableModuleLogic):
+class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
     """This class should implement all the actual
     computation done by your module.  The interface
     should be such that other python code can import
@@ -388,7 +388,7 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
 
         if not slicer.util.confirmOkCancelDisplay(
             "ITK-elastix will be downloaded and installed now. This process may take a minute",
-            dontShowAgainSettingsKey="Tracking3D/DontShowITKElastixInstallWarning",
+            dontShowAgainSettingsKey="Hierarchical3DRegistration/DontShowITKElastixInstallWarning",
         ):
             logging.info("ITK-elasitx install aborted by user.")
             return None
@@ -399,7 +399,7 @@ class Tracking3DLogic(ScriptedLoadableModuleLogic):
         return itk
 
     def getParameterNode(self):
-        return Tracking3DParameterNode(super().getParameterNode())
+        return Hierarchical3DRegistrationParameterNode(super().getParameterNode())
 
     @staticmethod
     def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLTransformNode:
