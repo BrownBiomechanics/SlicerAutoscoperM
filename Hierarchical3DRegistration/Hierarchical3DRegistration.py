@@ -305,15 +305,13 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
         """Updates the slider and spin boxes when a new sequence is selected."""
         if self.logic.autoscoperLogic.IsSequenceVolume(CTSelectorNode):
             numNodes = CTSelectorNode.GetNumberOfDataNodes()
-            self.ui.frameSlider.maximum = numNodes
-            self.ui.startFrame.maximum = numNodes
-            self.ui.endFrame.maximum = numNodes
-            self.ui.endFrame.value = numNodes
+            maxFrame = numNodes - 1
         elif CTSelectorNode is None:
-            self.ui.frameSlider.maximum = 0
-            self.ui.startFrame.maximum = 0
-            self.ui.endFrame.maximum = 0
-            self.ui.endFrame.value = 0
+            maxFrame = 0
+        self.ui.frameSlider.maximum = maxFrame
+        self.ui.startFrame.maximum = maxFrame
+        self.ui.endFrame.maximum = maxFrame
+        self.ui.endFrame.value = maxFrame
 
     def onInitHierarchyButton(self):
         """UI Button for initializing the hierarchy transforms."""
@@ -500,7 +498,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
         try:
             self.isRunning = True
-            for idx in range(startFrame, endFrame):
+            for idx in range(startFrame, endFrame + 1):
                 nodeList = [rootNode]
                 for node in nodeList:
                     slicer.app.processEvents()
@@ -527,7 +525,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
                     node.dataNode.SetAndObserveTransformNodeID(node.getTransform(idx).GetID())
 
-                if idx != endFrame - 1:  # Unless its the last frame
+                if idx != endFrame:  # Unless it's the last frame
                     rootNode.copyTransformToNextFrame(idx)
         finally:
             self.isRunning = False
