@@ -504,7 +504,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
         try:
             self.isRunning = True
-            for idx in range(startFrame, endFrame):
+            for idx in range(startFrame, endFrame + 1):
                 nodeList = [rootNode]
                 for node in nodeList:
                     slicer.app.processEvents()
@@ -531,7 +531,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
                     node.dataNode.SetAndObserveTransformNodeID(node.getTransform(idx).GetID())
 
-                if idx != endFrame - 1:  # Unless its the last frame
+                if idx != endFrame:  # Unless it's the last frame
                     rootNode.copyTransformToNextFrame(idx)
         finally:
             self.isRunning = False
