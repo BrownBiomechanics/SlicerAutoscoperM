@@ -771,18 +771,20 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for i in range(len(vols)):
                 nodeName = os.path.splitext(os.path.basename(vols[i]))[0]
                 volumeNode = slicer.util.loadVolume(vols[i])
-                translationNodeName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_t.tfm")
-                scaleNodeName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_scale.tfm")
-                if not os.path.exists(translationNodeName):
+                translationTransformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_t.tfm")
+                scaleTranformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_scale.tfm")
+                if not os.path.exists(translationTransformFileName):
                     raise ValueError(
-                        f"Did not find corresponding translation transform for volume {nodeName}: {translationNodeName}"
+                        f"Failed to load partial volume {nodeName}: "
+                        "Corresponding translation transform file {translationTransformFileName} not found"
                     )
-                if not os.path.exists(scaleNodeName):
+                if not os.path.exists(scaleTranformFileName):
                     raise ValueError(
-                        f"Did not find corresponding scaling transform for volume {nodeName}: {scaleNodeName}"
+                        f"Failed to load partial volume {nodeName}: "
+                        "Corresponding scaling transform file {scaleTranformFileName} not found"
                     )
-                translationNode = slicer.util.loadTransform(translationNodeName)
-                scaleNode = slicer.util.loadTransform(scaleNodeName)
+                translationNode = slicer.util.loadTransform(translationTransformFileName)
+                scaleNode = slicer.util.loadTransform(scaleTranformFileName)
 
                 volumeNode.SetAndObserveTransformNodeID(scaleNode.GetID())
                 scaleNode.SetAndObserveTransformNodeID(translationNode.GetID())
