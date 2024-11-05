@@ -595,6 +595,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             volumeSubDir = self.ui.tiffSubDir.text
             transformSubDir = self.ui.tfmSubDir.text
 
+            # Check number of generated scale and translation transform files matches the number of volumes
             vols = glob.glob(os.path.join(mainOutputDir, volumeSubDir, "*.tif"))
             tfms_t = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*_t.tfm"))
             tfms_scale = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*_scale.tfm"))
@@ -610,11 +611,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
                 return
 
+            # check 3 transform files have been generated (translation, scale and combined)
+            # and load only the combined scale and translation transform for each generated partial volume
             for i in range(len(vols)):
                 nodeName = os.path.splitext(os.path.basename(vols[i]))[0]
                 volumeNode = slicer.util.loadVolume(vols[i])
                 translationTransformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_t.tfm")
                 scaleTranformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_scale.tfm")
+                transformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}.tfm")
                 if not os.path.exists(translationTransformFileName):
                     raise ValueError(
                         f"Failed to load partial volume {nodeName}: "
@@ -625,11 +629,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         f"Failed to load partial volume {nodeName}: "
                         "Corresponding scaling transform file {scaleTranformFileName} not found"
                     )
-                translationNode = slicer.util.loadTransform(translationTransformFileName)
-                scaleNode = slicer.util.loadTransform(scaleTranformFileName)
+                if not os.path.exists(transformFileName):
+                    raise ValueError(
+                        f"Failed to load partial volume {nodeName}: "
+                        "Corresponding combined transform file {transformFileName} not found"
+                    )
+                transformNode = slicer.util.loadTransform(transformFileName)
 
-                volumeNode.SetAndObserveTransformNodeID(scaleNode.GetID())
-                scaleNode.SetAndObserveTransformNodeID(translationNode.GetID())
+                volumeNode.SetAndObserveTransformNodeID(transformNode.GetID())
                 self.logic.showVolumeIn3D(volumeNode)
 
         slicer.util.messageBox("Success!")
