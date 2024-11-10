@@ -211,11 +211,15 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Ankle"))
 
         # Pre-processing Library Buttons
+        self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCurrentNodeChanged)
         self.ui.tiffGenButton.connect("clicked(bool)", self.onGeneratePartialVolumes)
         self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
         self.ui.segmentationButton.connect("clicked(bool)", self.onSegmentation)
-
+        self.ui.importModelsButton.connect("clicked(bool)", self.onImportModels)
         self.ui.loadPVButton.connect("clicked(bool)", self.onLoadPV)
+        self.ui.populateTrialNameListButton.connect("clicked(bool)", self.onPopulateTrialNameList)
+        self.ui.populatePartialVolumeListButton.connect("clicked(bool)", self.onPopulatePartialVolumeList)
+        self.ui.populateCameraCalListButton.connect("clicked(bool)", self.onPopulateCameraCalList)
 
         # Default output directory
         self.ui.mainOutputSelector.setCurrentPath(
@@ -224,6 +228,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+
+        # Trigger any required UI updates based on the volume node selected by default
+        self.onCurrentNodeChanged()
 
     def cleanup(self):
         """
@@ -410,6 +417,18 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for cam in range(numCams):
             self.logic.AutoscoperSocket.loadFilters(cam, filterSettings)
 
+    def onCurrentNodeChanged(self):
+        """
+        Updates and UI components that correspond to the selected input volume node
+        """
+        volumeNode = self.ui.volumeSelector.currentNode()
+        if volumeNode:
+            with slicer.util.tryWithErrorDisplay("Failed to grab volume node information", waitCursor=True):
+                vSizeX, vSizeY, vSizeZ = self.logic.GetVolumeSpacing(volumeNode)
+            self.ui.voxelSizeX.value = vSizeX
+            self.ui.voxelSizeY.value = vSizeY
+            self.ui.voxelSizeZ.value = vSizeZ
+
     def onGeneratePartialVolumes(self):
         """
         This function creates partial volumes for each segment in the segmentation node for the selected volume node.
@@ -503,13 +522,19 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.optOffPitch.value,
                 self.ui.optOffRoll.value,
             ]
+
             volumeFlip = [
                 int(self.ui.flipX.isChecked()),
                 int(self.ui.flipY.isChecked()),
                 int(self.ui.flipZ.isChecked()),
             ]
 
-            voxel_spacing = self.logic.GetVolumeSpacing(volumeNode)
+            voxel_spacing = [
+                self.ui.voxelSizeX.value,
+                self.ui.voxelSizeY.value,
+                self.ui.voxelSizeZ.value,
+            ]
+
             # generate the config file
             configFilePath = IO.generateConfigFile(
                 mainOutputDir,
@@ -524,9 +549,44 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.configSelector.setCurrentPath(configFilePath)
         slicer.util.messageBox("Success!")
 
+    def onImportModels(self):
+        """
+        Imports Models from a directory- converts to Segmentation Nodes
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            self.ui.progressBar.setValue(0)
+            self.ui.progressBar.setMaximum(100)
+
+            volumeNode = self.ui.volumeSelector.currentNode()
+
+            if not self.logic.validateInputs(voluemNode=volumeNode):
+                raise ValueError("Invalid inputs")
+                return
+
+            if self.ui.segGen_fileRadioButton.isChecked():
+                segmentationFileDir = self.ui.segGen_lineEdit.currentPath
+                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
+                    raise ValueError("Invalid paths")
+                    return
+                segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
+                segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+                segmentationNode.CreateDefaultDisplayNodes()
+                for idx, file in enumerate(segmentationFiles):
+                    returnedNode = IO.loadSegmentation(segmentationNode, file)
+                    if returnedNode:
+                        # get the segment from the returned node and add it to the segmentation node
+                        segment = returnedNode.GetSegmentation().GetNthSegment(0)
+                        segmentationNode.GetSegmentation().AddSegment(segment)
+                        slicer.mrmlScene.RemoveNode(returnedNode)
+                    self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
+            else:  # Should never happen but just in case
+                raise Exception("Please select the 'Segmentation From Model' option in order to import models")
+                return
+        slicer.util.messageBox("Success!")
+
     def onSegmentation(self):
         """
-        Either launches the automatic segmentation process or loads in a set of segmentations from a directory
+        Launches the automatic segmentation process
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
             self.ui.progressBar.setValue(0)
@@ -561,24 +621,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
                         slicer.mrmlScene.RemoveNode(segmentationNode)
                         currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
-            elif self.ui.segGen_fileRadioButton.isChecked():
-                segmentationFileDir = self.ui.segGen_lineEdit.currentPath
-                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
-                    raise ValueError("Invalid paths")
-                    return
-                segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
-                segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-                segmentationNode.CreateDefaultDisplayNodes()
-                for idx, file in enumerate(segmentationFiles):
-                    returnedNode = IO.loadSegmentation(segmentationNode, file)
-                    if returnedNode:
-                        # get the segment from the returned node and add it to the segmentation node
-                        segment = returnedNode.GetSegmentation().GetNthSegment(0)
-                        segmentationNode.GetSegmentation().AddSegment(segment)
-                        slicer.mrmlScene.RemoveNode(returnedNode)
-                    self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
             else:  # Should never happen but just in case
-                raise Exception("No segmentation method selected")
+                raise Exception("Please select the 'Automatic Segmentation' option in order to generate segmentations")
                 return
         slicer.util.messageBox("Success!")
 
@@ -648,6 +692,64 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.logic.showVolumeIn3D(volumeNode)
 
         slicer.util.messageBox("Success!")
+
+    def onPopulateTrialNameList(self):
+        """
+        Populates trial name UI list using files from the selected radiograph directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.trialList, self.ui.vrgSubDir.text, itemType="dir")
+
+    def onPopulatePartialVolumeList(self):
+        """
+        Populates partial volumes UI list using files from the selected PV directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.partialVolumeList, self.ui.tiffSubDir.text)
+
+    def onPopulateCameraCalList(self):
+        """
+        Populates camera calibration UI list using files from the selected camera directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.camCalList, self.ui.cameraSubDir.text)
+
+    def populateListFromOutputSubDir(self, listWidget, fileSubDir, itemType="file"):
+        """
+        Populates input UI list with files/directories that exist in the given input directory
+        """
+        listWidget.clear()
+
+        mainOutputDir = self.ui.mainOutputSelector.currentPath
+        if not self.logic.validateInputs(
+            listWidget=listWidget,
+            mainOutputDir=mainOutputDir,
+            fileSubDir=fileSubDir,
+        ):
+            raise ValueError("Invalid inputs")
+            return
+
+        fileDir = os.path.join(mainOutputDir, fileSubDir)
+        if not self.logic.validatePaths(fileDir=fileDir):
+            raise ValueError(f"Invalid input: subdirectory '{fileDir}' does not exist.")
+            return
+
+        if itemType == "file":
+            listFiles = [f.name for f in os.scandir(fileDir) if os.path.isfile(f)]
+        elif itemType == "dir":
+            listFiles = [f.name for f in os.scandir(fileDir) if os.path.isdir(f)]
+        else:
+            raise ValueError(
+                "Invalid input: can either search for type 'file' or 'dir' "
+                f"in specified path, but given itemType='{itemType}'"
+            )
+            return
+
+        for file in sorted(listFiles):
+            fileItem = qt.QListWidgetItem(file)
+            fileItem.setFlags(fileItem.flags() & ~qt.Qt.ItemIsSelectable)  # Remove the selectable flag
+            fileItem.setCheckState(qt.Qt.Unchecked)
+            listWidget.addItem(fileItem)
 
 
 #
