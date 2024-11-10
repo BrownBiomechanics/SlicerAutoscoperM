@@ -42,8 +42,6 @@ endif()
 # Extension modules
 add_subdirectory(AutoscoperM)
 add_subdirectory(TrackingEvaluation)
-add_subdirectory(CalculateDataIntensityDensity)
-add_subdirectory(VirtualRadiographGeneration)
 add_subdirectory(Hierarchical3DRegistration)
 ## NEXT_MODULE
 

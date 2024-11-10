@@ -30,10 +30,6 @@ class Hierarchical3DRegistration(ScriptedLoadableModule):
         self.parent.categories = [
             "Tracking",
         ]
-        self.parent.dependencies = [
-            "CalculateDataIntensityDensity",
-            "VirtualRadiographGeneration",
-        ]
         self.parent.contributors = [
             "Anthony Lombardi (Kitware)",
             "Amy M Morton (Brown University)",

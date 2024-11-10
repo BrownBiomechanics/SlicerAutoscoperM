@@ -7,8 +7,6 @@ import numpy as np
 import slicer
 import vtk
 
-from .RadiographGeneration import Camera
-
 
 def loadSegmentation(segmentationNode: slicer.vtkMRMLSegmentationNode, filename: str):
     """
@@ -33,34 +31,6 @@ def loadSegmentation(segmentationNode: slicer.vtkMRMLSegmentationNode, filename:
     except Exception as e:
         logging.error(f"Could not load {filename} \n {e}")
         return None
-
-
-def generateCameraCalibrationFile(camera: Camera, filename: str):
-    """
-    Generates a VTK camera calibration json file from the given camera.
-
-    :param camera: Camera
-    :param filename: Output file name
-    """
-    import json
-
-    contents = {}
-    contents["@schema"] = "https://autoscoperm.slicer.org/vtkCamera-schema-1.0.json"
-    contents["version"] = 1.0
-    contents["focal-point"] = camera.vtkCamera.GetFocalPoint()
-    contents["camera-position"] = camera.vtkCamera.GetPosition()
-    contents["view-up"] = camera.vtkCamera.GetViewUp()
-    contents["view-angle"] = camera.vtkCamera.GetViewAngle()
-    contents["image-width"] = camera.imageSize[0]
-    contents["image-height"] = camera.imageSize[1]
-    # The clipping-range field is not used by Autoscoper, it is used to communicate
-    # information between AutoscoperM and VirtualRadiographGeneration modules within Slicer.
-    contents["clipping-range"] = camera.vtkCamera.GetClippingRange()
-
-    contents_json = json.dumps(contents, indent=4)
-
-    with open(filename, "w+") as f:
-        f.write(contents_json)
 
 
 def generateConfigFile(
@@ -263,34 +233,3 @@ def writeTRA(fileName: str, transforms: list[vtk.vtkMatrix4x4]) -> None:
     with open(fileName, "w+") as traFile:
         for row in rowWiseStrings:
             traFile.write(",".join(row) + "\n")
-
-
-def writeTemporyFile(filename: str, data: vtk.vtkImageData) -> str:
-    """
-    Writes a temporary file to the slicer temp directory
-
-    :param filename: Output file name
-    :param data: data
-
-    :return: Path to the file
-    """
-
-    slicerTempDirectory = slicer.app.temporaryPath
-
-    # write vtk image data as a vtk file
-    writer = vtk.vtkMetaImageWriter()
-    writer.SetFileName(os.path.join(slicerTempDirectory, filename))
-    writer.SetInputData(data)
-    writer.Write()
-    return writer.GetFileName()
-
-
-def removeTemporyFile(filename: str):
-    """
-    Removes a temporary file from the slicer temp directory
-
-    :param filename: Output file name
-    """
-
-    slicerTempDirectory = slicer.app.temporaryPath
-    os.remove(os.path.join(slicerTempDirectory, filename))
