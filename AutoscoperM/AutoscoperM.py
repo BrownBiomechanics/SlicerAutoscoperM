@@ -611,11 +611,19 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
                 return
 
+            # get the IJK to RAS direction matrix from original input volume
+            parentVolume = self.ui.volumeSelector.currentNode()
+            parentIJKToRAS = vtk.vtkMatrix4x4()
+            parentVolume.GetIJKToRASDirectionMatrix(parentIJKToRAS)
+
             # check 3 transform files have been generated (translation, scale and combined)
             # and load only the combined scale and translation transform for each generated partial volume
             for i in range(len(vols)):
                 nodeName = os.path.splitext(os.path.basename(vols[i]))[0]
                 volumeNode = slicer.util.loadVolume(vols[i])
+                # ensure we maintain the original RAS/LPS directions from the parent volume
+                volumeNode.SetIJKToRASDirectionMatrix(parentIJKToRAS)
+
                 translationTransformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_t.tfm")
                 scaleTranformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}_scale.tfm")
                 transformFileName = os.path.join(mainOutputDir, transformSubDir, f"{nodeName}.tfm")
