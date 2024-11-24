@@ -484,24 +484,29 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
             volumeNode = self.ui.volumeSelector.currentNode()
             mainOutputDir = self.ui.mainOutputSelector.currentPath
-            trialName = self.ui.trialName.text
-            width = self.ui.vrgRes_width.value
-            height = self.ui.vrgRes_height.value
+            configFileName = self.ui.configFileName.text
+
+            configPath = os.path.join(mainOutputDir, f"{configFileName}.cfg")
 
             tiffSubDir = self.ui.tiffSubDir.text
             vrgSubDir = self.ui.vrgSubDir.text
             calibrationSubDir = self.ui.cameraSubDir.text
 
+            trialList = self.ui.trialList
+            partialVolumeList = self.ui.partialVolumeList
+            camCalList = self.ui.camCalList
+
             # Validate the inputs
             if not self.logic.validateInputs(
                 volumeNode=volumeNode,
                 mainOutputDir=mainOutputDir,
-                trialName=trialName,
-                width=width,
-                height=height,
-                volumeSubDir=tiffSubDir,
+                configFileName=configFileName,
+                tiffSubDir=tiffSubDir,
                 vrgSubDir=vrgSubDir,
                 calibrationSubDir=calibrationSubDir,
+                trialList=trialList,
+                partialVolumeList=partialVolumeList,
+                camCalList=camCalList,
             ):
                 raise ValueError("Invalid inputs")
                 return
@@ -512,6 +517,32 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 calibDir=os.path.join(mainOutputDir, calibrationSubDir),
             ):
                 raise ValueError("Invalid paths")
+                return
+
+            def get_checked_items(listWidget):
+                checked_items = []
+                for idx in range(listWidget.count):
+                    item = listWidget.item(idx)
+                    if item.checkState() == qt.Qt.Checked:
+                        checked_items.append(item.text())
+                return checked_items
+
+            # extract filenames from UI lists, and use them to construct the paths relative to mainOutputDir
+            # FIXME: don't assume the list of camera files is given in the same order as list of radiograph root dir!
+            camCalFiles = [os.path.join(calibrationSubDir, item) for item in get_checked_items(camCalList)]
+            trialDirs = [os.path.join(vrgSubDir, item) for item in get_checked_items(trialList)]
+
+            if len(camCalFiles) != len(trialDirs):
+                raise ValueError(
+                    "Invalid inputs: number of selected trial directories must match the number "
+                    f"of camera calibration files: {len(camCalFiles)} != {len(trialDirs)}"
+                )
+                return
+
+            partialVolumeFiles = [os.path.join(tiffSubDir, item) for item in get_checked_items(partialVolumeList)]
+
+            if len(partialVolumeFiles) == 0:
+                raise ValueError("Invalid inputs: at least one volume file must be selected!")
                 return
 
             optimizationOffsets = [
@@ -529,24 +560,45 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 int(self.ui.flipZ.isChecked()),
             ]
 
+            renderResolution = [
+                self.ui.configRes_width.value,
+                self.ui.configRes_height.value,
+            ]
+
             voxel_spacing = [
                 self.ui.voxelSizeX.value,
                 self.ui.voxelSizeY.value,
                 self.ui.voxelSizeZ.value,
             ]
 
+            # Validate the inputs
+            if not self.logic.validateInputs(
+                *trialDirs,
+                *partialVolumeFiles,
+                *camCalFiles,
+                *optimizationOffsets,
+                *volumeFlip,
+                *renderResolution,
+                *voxel_spacing,
+            ):
+                raise ValueError("Invalid inputs")
+                return
+
             # generate the config file
-            configFilePath = IO.generateConfigFile(
-                mainOutputDir,
-                [tiffSubDir, vrgSubDir, calibrationSubDir],
-                trialName,
+            IO.generateConfigFile(
+                outputConfigPath=configPath,
+                trialName=configFileName,
+                camCalFiles=camCalFiles,
+                camRootDirs=trialDirs,
+                volumeFiles=partialVolumeFiles,
                 volumeFlip=volumeFlip,
                 voxelSize=voxel_spacing,
-                renderResolution=[int(width / 2), int(height / 2)],
+                renderResolution=renderResolution,
                 optimizationOffsets=optimizationOffsets,
             )
 
-            self.ui.configSelector.setCurrentPath(configFilePath)
+            # Set the path to this newly created config file in the "Config File" field in the Autoscoper Control UI
+            self.ui.configSelector.setCurrentPath(configPath)
         slicer.util.messageBox("Success!")
 
     def onImportModels(self):
