@@ -214,8 +214,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCurrentNodeChanged)
         self.ui.tiffGenButton.connect("clicked(bool)", self.onGeneratePartialVolumes)
         self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
-        self.ui.segmentationButton.connect("clicked(bool)", self.onSegmentation)
-        self.ui.importModelsButton.connect("clicked(bool)", self.onImportModels)
+        self.ui.segGen_segmentationButton.connect("clicked(bool)", self.onSegmentation)
+        self.ui.segSTL_importModelsButton.connect("clicked(bool)", self.onImportModels)
         self.ui.loadPVButton.connect("clicked(bool)", self.onLoadPV)
         self.ui.populateTrialNameListButton.connect("clicked(bool)", self.onPopulateTrialNameList)
         self.ui.populatePartialVolumeListButton.connect("clicked(bool)", self.onPopulatePartialVolumeList)
@@ -489,7 +489,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             configPath = os.path.join(mainOutputDir, f"{configFileName}.cfg")
 
             tiffSubDir = self.ui.tiffSubDir.text
-            vrgSubDir = self.ui.vrgSubDir.text
+            radiographSubDir = self.ui.radiographSubDir.text
             calibrationSubDir = self.ui.cameraSubDir.text
 
             trialList = self.ui.trialList
@@ -502,7 +502,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir=mainOutputDir,
                 configFileName=configFileName,
                 tiffSubDir=tiffSubDir,
-                vrgSubDir=vrgSubDir,
+                radiographSubDir=radiographSubDir,
                 calibrationSubDir=calibrationSubDir,
                 trialList=trialList,
                 partialVolumeList=partialVolumeList,
@@ -513,7 +513,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if not self.logic.validatePaths(
                 mainOutputDir=mainOutputDir,
                 tiffDir=os.path.join(mainOutputDir, tiffSubDir),
-                vrgDir=os.path.join(mainOutputDir, vrgSubDir),
+                radiographSubDir=os.path.join(mainOutputDir, radiographSubDir),
                 calibDir=os.path.join(mainOutputDir, calibrationSubDir),
             ):
                 raise ValueError("Invalid paths")
@@ -530,7 +530,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # extract filenames from UI lists, and use them to construct the paths relative to mainOutputDir
             # FIXME: don't assume the list of camera files is given in the same order as list of radiograph root dir!
             camCalFiles = [os.path.join(calibrationSubDir, item) for item in get_checked_items(camCalList)]
-            trialDirs = [os.path.join(vrgSubDir, item) for item in get_checked_items(trialList)]
+            trialDirs = [os.path.join(radiographSubDir, item) for item in get_checked_items(trialList)]
 
             if len(camCalFiles) != len(trialDirs):
                 raise ValueError(
@@ -615,8 +615,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 raise ValueError("Invalid inputs")
                 return
 
-            if self.ui.segGen_fileRadioButton.isChecked():
-                segmentationFileDir = self.ui.segGen_lineEdit.currentPath
+            if self.ui.segSTL_loadRadioButton.isChecked():
+                segmentationFileDir = self.ui.segSTL_modelsDir.currentPath
                 if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
                     raise ValueError("Invalid paths")
                     return
@@ -663,7 +663,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.logic.cleanFilename(currentVolumeNode.GetName(), i)
                     segmentationNode = SubVolumeExtraction.automaticSegmentation(
                         currentVolumeNode,
-                        self.ui.segGen_ThresholdSpinBox.value,
+                        self.ui.segGen_thresholdSpinBox.value,
                         self.ui.segGen_marginSizeSpin.value,
                         progressCallback=self.updateProgressBar,
                     )
@@ -750,7 +750,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Populates trial name UI list using files from the selected radiograph directory
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            self.populateListFromOutputSubDir(self.ui.trialList, self.ui.vrgSubDir.text, itemType="dir")
+            self.populateListFromOutputSubDir(self.ui.trialList, self.ui.radiographSubDir.text, itemType="dir")
 
     def onPopulatePartialVolumeList(self):
         """

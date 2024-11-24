@@ -147,7 +147,7 @@
        <item>
         <layout class="QFormLayout" name="formLayout">
          <item row="0" column="0">
-          <widget class="QLabel" name="label_5">
+          <widget class="QLabel" name="mainOutputSelectorLabel">
            <property name="text">
             <string>Output Directory:</string>
            </property>
@@ -161,7 +161,7 @@
           </widget>
          </item>
          <item row="1" column="0">
-          <widget class="QLabel" name="label_2">
+          <widget class="QLabel" name="volumeSelectorLabel">
            <property name="text">
             <string>Volume Node:</string>
            </property>
@@ -211,14 +211,14 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QLabel" name="segThresholdLabel">
+           <widget class="QLabel" name="segGen_thresholdLabel">
             <property name="text">
              <string>Threshold Value:</string>
             </property>
            </widget>
           </item>
           <item row="0" column="2">
-           <widget class="QSpinBox" name="segGen_ThresholdSpinBox">
+           <widget class="QSpinBox" name="segGen_thresholdSpinBox">
             <property name="maximum">
              <number>10000</number>
             </property>
@@ -227,8 +227,15 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="3" rowspan="2">
+           <widget class="QPushButton" name="segGen_segmentationButton">
+            <property name="text">
+             <string>Generate Segmentations</string>
+            </property>
+           </widget>
+          </item>
           <item row="1" column="1">
-           <widget class="QLabel" name="segMarginSizeLabel">
+           <widget class="QLabel" name="segGen_marginSizeLabel">
             <property name="text">
              <string>Margin Size:</string>
             </property>
@@ -241,29 +248,22 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="3" rowspan="2">
-           <widget class="QPushButton" name="segmentationButton">
-            <property name="text">
-             <string>Generate Segmentations</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="label_4">
+           <widget class="QLabel" name="seg_OR_Label">
             <property name="text">
              <string>OR</string>
             </property>
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QRadioButton" name="segGen_fileRadioButton">
+           <widget class="QRadioButton" name="segSTL_loadRadioButton">
             <property name="text">
              <string>Segmentation from Model</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLabel" name="segSTLModelsDirLabel">
+           <widget class="QLabel" name="segSTL_modelsDirLabel">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -273,7 +273,7 @@
            </widget>
           </item>
           <item row="3" column="2">
-           <widget class="ctkPathLineEdit" name="segGen_lineEdit">
+           <widget class="ctkPathLineEdit" name="segSTL_modelsDir">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -283,7 +283,7 @@
            </widget>
           </item>
           <item row="3" column="3">
-           <widget class="QPushButton" name="importModelsButton">
+           <widget class="QPushButton" name="segSTL_importModelsButton">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -307,14 +307,14 @@
           <bool>false</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout">
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_9">
+          <item row="0" column="0">
+           <widget class="QLabel" name="pv_SegNodeComboBoxLabel">
             <property name="text">
              <string>Segmentation Node:</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1" colspan="2">
+          <item row="0" column="1" colspan="2">
            <widget class="qMRMLNodeComboBox" name="pv_SegNodeComboBox">
             <property name="enabled">
              <bool>true</bool>
@@ -332,14 +332,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="3">
+          <item row="1" column="0" colspan="3">
            <widget class="QPushButton" name="tiffGenButton">
             <property name="text">
              <string>Generate Partial Volumes</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0" colspan="3">
+          <item row="2" column="0" colspan="3">
            <widget class="QPushButton" name="loadPVButton">
             <property name="text">
              <string>Load Partial Volumes</string>
@@ -368,7 +368,7 @@
          </property>
          <layout class="QGridLayout" name="gridLayout_3">
           <item row="0" column="0">
-           <widget class="QLabel" name="label_12">
+           <widget class="QLabel" name="tiffSubDirLabel">
             <property name="text">
              <string>Partial Volume Subdirectory:</string>
             </property>
@@ -382,7 +382,7 @@
            </widget>
           </item>
           <item row="1" column="0">
-           <widget class="QLabel" name="label_20">
+           <widget class="QLabel" name="tfmSubDirLabel">
             <property name="text">
              <string>Partial Volume Transforms Subdirectory:</string>
             </property>
@@ -396,7 +396,7 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="label_13">
+           <widget class="QLabel" name="radiographSubDirLabel">
             <property name="font">
              <font>
               <weight>75</weight>
@@ -409,7 +409,7 @@
            </widget>
           </item>
           <item row="2" column="2" colspan="2">
-           <widget class="QLineEdit" name="vrgSubDir">
+           <widget class="QLineEdit" name="radiographSubDir">
             <property name="font">
              <font>
               <weight>75</weight>
@@ -422,7 +422,7 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLabel" name="label_14">
+           <widget class="QLabel" name="cameraSubDirLabel">
             <property name="font">
              <font>
               <weight>75</weight>
@@ -451,7 +451,7 @@
            </widget>
           </item>
           <item row="4" column="0">
-           <widget class="QLabel" name="label_18">
+           <widget class="QLabel" name="trackingSubDirLabel">
             <property name="text">
              <string>Tracking Subdirectory:</string>
             </property>
@@ -465,7 +465,7 @@
            </widget>
           </item>
           <item row="5" column="0">
-           <widget class="QLabel" name="label_21">
+           <widget class="QLabel" name="modelSubDirLabel">
             <property name="text">
              <string>Model Subdirectory:</string>
             </property>
@@ -499,7 +499,7 @@
           <item row="0" column="0">
            <layout class="QGridLayout" name="configPaths">
             <item row="0" column="0">
-             <widget class="QLabel" name="trialNameSelectLabel">
+             <widget class="QLabel" name="trialNameListLabel">
               <property name="enabled">
                <bool>true</bool>
               </property>
@@ -508,18 +508,11 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QPushButton" name="populateTrialNameListButton">
-              <property name="text">
-               <string>Populate From Radiographs Subdirectory</string>
-              </property>
-             </widget>
-            </item>
             <item row="0" column="1" rowspan="2">
              <widget class="QListWidget" name="trialList"/>
             </item>
             <item row="0" column="2" rowspan="2">
-             <widget class="QLabel" name="label_17">
+             <widget class="QLabel" name="configFileNameLabel">
               <property name="text">
                <string>and enter :</string>
               </property>
@@ -533,18 +526,28 @@
              </widget>
             </item>
             <item row="0" column="4" rowspan="2">
-             <widget class="QLabel" name="label_22">
+             <widget class="QLabel" name="configFileExtensionLabel">
               <property name="text">
                <string>.cfg</string>
               </property>
              </widget>
             </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="populateTrialNameListButton">
+              <property name="text">
+               <string>Populate From Radiographs Subdirectory</string>
+              </property>
+             </widget>
+            </item>
             <item row="2" column="0">
-             <widget class="QLabel" name="selectPVLabel">
+             <widget class="QLabel" name="partialVolumeListLabel">
               <property name="text">
                <string>Select Partial Volumes:</string>
               </property>
              </widget>
+            </item>
+            <item row="2" column="1" rowspan="2">
+             <widget class="QListWidget" name="partialVolumeList"/>
             </item>
             <item row="3" column="0">
              <widget class="QPushButton" name="populatePartialVolumeListButton">
@@ -553,15 +556,15 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="1" rowspan="2">
-             <widget class="QListWidget" name="partialVolumeList"/>
-            </item>
             <item row="4" column="0">
-             <widget class="QLabel" name="SelectCamCalLabel">
+             <widget class="QLabel" name="camCalListLabel">
               <property name="text">
                <string>Select Camera Calibrations: </string>
               </property>
              </widget>
+            </item>
+            <item row="4" column="1" rowspan="2">
+             <widget class="QListWidget" name="camCalList"/>
             </item>
             <item row="5" column="0">
              <widget class="QPushButton" name="populateCameraCalListButton">
@@ -570,15 +573,12 @@
               </property>
              </widget>
             </item>
-            <item row="4" column="1" rowspan="2">
-             <widget class="QListWidget" name="camCalList"/>
-            </item>
            </layout>
           </item>
           <item row="1" column="0">
            <layout class="QGridLayout" name="configParams">
             <item row="0" column="0">
-             <widget class="QLabel" name="label_8">
+             <widget class="QLabel" name="optOffLabel">
               <property name="text">
                <string>Optimization Offsets:</string>
               </property>
@@ -645,7 +645,7 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QLabel" name="label_11">
+             <widget class="QLabel" name="flipLabel">
               <property name="text">
                <string>Volume Flip:</string>
               </property>
@@ -679,7 +679,7 @@
              </widget>
             </item>
             <item row="2" column="0">
-             <widget class="QLabel" name="label_15">
+             <widget class="QLabel" name="configResLabel">
               <property name="text">
                <string>Render Resolution: (width,height)</string>
               </property>
@@ -706,7 +706,7 @@
              </widget>
             </item>
             <item row="3" column="0">
-             <widget class="QLabel" name="label_16">
+             <widget class="QLabel" name="voxelSizeLabel">
               <property name="text">
                <string>Voxel Size:</string>
               </property>
@@ -821,7 +821,7 @@
   <connection>
    <sender>segGen_autoRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segGen_ThresholdSpinBox</receiver>
+   <receiver>segGen_thresholdSpinBox</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -835,9 +835,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>segGen_fileRadioButton</sender>
+   <sender>segSTL_loadRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segGen_lineEdit</receiver>
+   <receiver>segSTL_modelsDir</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -883,9 +883,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>segGen_fileRadioButton</sender>
+   <sender>segSTL_loadRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>importModelsButton</receiver>
+   <receiver>segSTL_importModelsButton</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -901,7 +901,7 @@
   <connection>
    <sender>segGen_autoRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segmentationButton</receiver>
+   <receiver>segGen_segmentationButton</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -915,9 +915,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>segGen_fileRadioButton</sender>
+   <sender>segSTL_loadRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segSTLModelsDirLabel</receiver>
+   <receiver>segSTL_modelsDirLabel</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -933,7 +933,7 @@
   <connection>
    <sender>segGen_autoRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segThresholdLabel</receiver>
+   <receiver>segGen_thresholdLabel</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -949,7 +949,7 @@
   <connection>
    <sender>segGen_autoRadioButton</sender>
    <signal>toggled(bool)</signal>
-   <receiver>segMarginSizeLabel</receiver>
+   <receiver>segGen_marginSizeLabel</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
