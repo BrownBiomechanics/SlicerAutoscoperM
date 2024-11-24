@@ -18,7 +18,7 @@ from slicer.ScriptedLoadableModule import (
 )
 from slicer.util import VTKObservationMixin
 
-from AutoscoperMLib import IO, SubVolumeExtraction
+from AutoscoperMLib import IO, ErrorUtils, SubVolumeExtraction
 
 #
 # AutoscoperM
@@ -447,7 +447,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             trackingSubDir = self.ui.trackingSubDir.text
             modelSubDir = self.ui.modelSubDir.text
             segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
-            if not self.logic.validateInputs(
+
+            ErrorUtils.validateInputs(
                 volumeNode=volumeNode,
                 segmentationNode=segmentationNode,
                 mainOutputDir=mainOutputDir,
@@ -455,9 +456,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 transformSubDir=tfmSubDir,
                 trackingSubDir=trackingSubDir,
                 modelSubDir=modelSubDir,
-            ):
-                raise ValueError("Invalid inputs")
-                return
+            )
 
             self.logic.createPathsIfNotExists(
                 mainOutputDir,
@@ -503,7 +502,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             camCalList = self.ui.camCalList
 
             # Validate the inputs
-            if not self.logic.validateInputs(
+            ErrorUtils.validateInputs(
                 volumeNode=volumeNode,
                 mainOutputDir=mainOutputDir,
                 configFileName=configFileName,
@@ -513,17 +512,13 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 trialList=trialList,
                 partialVolumeList=partialVolumeList,
                 camCalList=camCalList,
-            ):
-                raise ValueError("Invalid inputs")
-                return
-            if not self.logic.validatePaths(
+            )
+            ErrorUtils.validatePaths(
                 mainOutputDir=mainOutputDir,
                 tiffDir=os.path.join(mainOutputDir, tiffSubDir),
                 radiographSubDir=os.path.join(mainOutputDir, radiographSubDir),
                 calibDir=os.path.join(mainOutputDir, calibrationSubDir),
-            ):
-                raise ValueError("Invalid paths")
-                return
+            )
 
             def get_staged_items(listWidget):
                 staged_items = []
@@ -600,8 +595,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.voxelSizeZ.value,
             ]
 
-            # Validate the inputs
-            if not self.logic.validateInputs(
+            # Validate the extracted parameters
+            ErrorUtils.validateInputs(
                 *trialDirs,
                 *partialVolumeFiles,
                 *camCalFiles,
@@ -609,8 +604,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 *volumeFlip,
                 *renderResolution,
                 *voxel_spacing,
-            ):
-                raise ValueError("Invalid inputs")
+            )
 
             # generate the config file
             IO.generateConfigFile(
@@ -639,15 +633,13 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             volumeNode = self.ui.volumeSelector.currentNode()
 
-            if not self.logic.validateInputs(voluemNode=volumeNode):
-                raise ValueError("Invalid inputs")
-                return
+            ErrorUtils.validateInputs(volumeNode=volumeNode)
 
             if self.ui.segSTL_loadRadioButton.isChecked():
                 segmentationFileDir = self.ui.segSTL_modelsDir.currentPath
-                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
-                    raise ValueError("Invalid paths")
-                    return
+
+                ErrorUtils.validatePaths(segmentationFileDir=segmentationFileDir)
+
                 segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
                 segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
                 segmentationNode.CreateDefaultDisplayNodes()
@@ -660,7 +652,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         slicer.mrmlScene.RemoveNode(returnedNode)
                     self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
             else:  # Should never happen but just in case
-                raise Exception("Please select the 'Segmentation From Model' option in order to import models")
+                raise ValueError("Please select the 'Segmentation From Model' option in order to import models")
                 return
         slicer.util.messageBox("Success!")
 
@@ -674,9 +666,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             volumeNode = self.ui.volumeSelector.currentNode()
 
-            if not self.logic.validateInputs(voluemNode=volumeNode):
-                raise ValueError("Invalid inputs")
-                return
+            ErrorUtils.validateInputs(volumeNode=volumeNode)
 
             if self.ui.segGen_autoRadioButton.isChecked():
                 currentVolumeNode = volumeNode
@@ -702,7 +692,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         slicer.mrmlScene.RemoveNode(segmentationNode)
                         currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
             else:  # Should never happen but just in case
-                raise Exception("Please select the 'Automatic Segmentation' option in order to generate segmentations")
+                raise ValueError("Please select the 'Automatic Segmentation' option in order to generate segmentations")
                 return
         slicer.util.messageBox("Success!")
 
@@ -725,7 +715,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             tfms_scale = glob.glob(os.path.join(mainOutputDir, transformSubDir, "*_scale.tfm"))
 
             if len(vols) == 0:
-                raise Exception("No data found")
+                raise ValueError("No data found")
                 return
 
             if len(vols) != len(tfms_t) != len(tfms_scale):
@@ -801,18 +791,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         listWidget.clear()
 
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        if not self.logic.validateInputs(
+        ErrorUtils.validateInputs(
             listWidget=listWidget,
             mainOutputDir=mainOutputDir,
             fileSubDir=fileSubDir,
-        ):
-            raise ValueError("Invalid inputs")
-            return
+        )
 
         fileDir = os.path.join(mainOutputDir, fileSubDir)
-        if not self.logic.validatePaths(fileDir=fileDir):
-            raise ValueError(f"Invalid input: subdirectory '{fileDir}' does not exist.")
-            return
+        ErrorUtils.validatePaths(fileDir=fileDir)
 
         if itemType == "file":
             listFiles = [f.name for f in os.scandir(fileDir) if os.path.isfile(f)]
@@ -1180,66 +1166,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         volumeNode.AddAndObserveDisplayNodeID(displayNode.GetID())
         logic.UpdateDisplayNodeFromVolumeNode(displayNode, volumeNode)
         slicer.mrmlScene.RemoveNode(slicer.util.getNode("Volume rendering ROI"))
-
-    @staticmethod
-    def validateInputs(*args: tuple, **kwargs: dict) -> bool:
-        """
-        Validates that the provided inputs are not None.
-
-        :param args: list of inputs to validate
-        :param kwargs: list of inputs to validate
-
-        :return: True if all inputs are valid, False otherwise
-        """
-        statuses = []
-        for arg in args:
-            status = True
-            if arg is None:
-                logging.error(f"{arg} is None")
-                status = False
-            if isinstance(arg, str) and arg == "":
-                logging.error(f"{arg} is an empty string")
-                status = False
-            statuses.append(status)
-
-        for name, arg in kwargs.items():
-            status = True
-            if arg is None:
-                logging.error(f"{name} is None")
-                status = False
-            if isinstance(arg, str) and arg == "":
-                logging.error(f"{name} is an empty string")
-                status = False
-            statuses.append(status)
-
-        return all(statuses)
-
-    @staticmethod
-    def validatePaths(*args: tuple, **kwargs: dict) -> bool:
-        """
-        Checks that the provided paths exist.
-
-        :param args: list of paths to validate
-        :param kwargs: list of paths to validate
-
-        :return: True if all paths exist, False otherwise
-        """
-        statuses = []
-        for arg in args:
-            status = True
-            if not os.path.exists(arg):
-                logging.error(f"{arg} does not exist")
-                status = False
-            statuses.append(status)
-
-        for name, path in kwargs.items():
-            status = True
-            if not os.path.exists(path):
-                logging.error(f"{name} ({path}) does not exist")
-                status = False
-            statuses.append(status)
-
-        return all(statuses)
 
     @staticmethod
     def createPathsIfNotExists(*args: tuple) -> None:
