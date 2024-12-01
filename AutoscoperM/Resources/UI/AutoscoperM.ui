@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>811</width>
+    <width>659</width>
     <height>1566</height>
    </rect>
   </property>
@@ -497,85 +497,212 @@
          </property>
          <layout class="QGridLayout" name="configInputs">
           <item row="0" column="0">
-           <layout class="QGridLayout" name="configPaths">
+           <layout class="QGridLayout" name="configName">
             <item row="0" column="0">
              <widget class="QLabel" name="trialNameListLabel">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
               <property name="text">
-               <string>Select Trial Names:</string>
+               <string>Config Trial Name:</string>
               </property>
              </widget>
             </item>
-            <item row="0" column="1" rowspan="2">
-             <widget class="QListWidget" name="trialList"/>
-            </item>
-            <item row="0" column="2" rowspan="2">
-             <widget class="QLabel" name="configFileNameLabel">
-              <property name="text">
-               <string>and enter :</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="3" rowspan="2">
+            <item row="0" column="1">
              <widget class="QLineEdit" name="configFileName">
               <property name="enabled">
                <bool>true</bool>
               </property>
              </widget>
             </item>
-            <item row="0" column="4" rowspan="2">
+            <item row="0" column="2">
              <widget class="QLabel" name="configFileExtensionLabel">
               <property name="text">
                <string>.cfg</string>
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QPushButton" name="populateTrialNameListButton">
-              <property name="text">
-               <string>Populate From Radiographs Subdirectory</string>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <layout class="QGridLayout" name="configPaths">
+            <item row="0" column="0">
+             <spacer name="verticalSpacerPVList">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
               </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="partialVolumeListLabel">
-              <property name="text">
-               <string>Select Partial Volumes:</string>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
               </property>
-             </widget>
-            </item>
-            <item row="2" column="1" rowspan="2">
-             <widget class="QListWidget" name="partialVolumeList"/>
-            </item>
-            <item row="3" column="0">
-             <widget class="QPushButton" name="populatePartialVolumeListButton">
-              <property name="text">
-               <string>Populate From Volume Subdirectory</string>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>10</height>
+               </size>
               </property>
-             </widget>
+             </spacer>
             </item>
-            <item row="4" column="0">
+            <item row="1" column="0" colspan="5">
              <widget class="QLabel" name="camCalListLabel">
               <property name="text">
-               <string>Select Camera Calibrations: </string>
+               <string>Select Paired Camera Calibrations: </string>
               </property>
              </widget>
             </item>
-            <item row="4" column="1" rowspan="2">
+            <item row="2" column="0" rowspan="2" colspan="2">
+             <widget class="QListWidget" name="camCalCandidateList">
+              <property name="styleSheet">
+               <string notr="true">
+                QListWidget::indicator:unchecked {
+                 background-color: palette(alternate-base);
+                }
+               </string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2" rowspan="3">
+             <widget class="QPushButton" name="stageCameraCalFileButton">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="toolTip">
+               <string>Add selected camera calibration file as next in order</string>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>40</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="3" colspan="2" rowspan="3">
              <widget class="QListWidget" name="camCalList"/>
             </item>
-            <item row="5" column="0">
+            <item row="4" column="0" colspan="2">
              <widget class="QPushButton" name="populateCameraCalListButton">
               <property name="text">
                <string>Populate From Camera Subdirectory</string>
               </property>
              </widget>
             </item>
+            <item row="5" column="0">
+             <spacer name="verticalSpacerCamCalList">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>10</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item row="6" column="0" colspan="5">
+             <widget class="QLabel" name="trialNameListLabel">
+              <property name="text">
+               <string>Select Paired Radiograph Subirectories:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0" colspan="2" rowspan="2">
+             <widget class="QListWidget" name="trialCandidateList">
+              <property name="styleSheet">
+               <string notr="true">
+                QListWidget::indicator:unchecked {
+                 background-color: palette(alternate-base);
+                }
+               </string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="2" rowspan="3">
+             <widget class="QPushButton" name="stageTrialDirButton">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="toolTip">
+               <string>Add selected radiograph subdirectory as next in order</string>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>40</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="3" colspan="2" rowspan="3">
+             <widget class="QListWidget" name="trialList"/>
+            </item>
+            <item row="9" column="0" colspan="2">
+             <widget class="QPushButton" name="populateTrialNameListButton">
+              <property name="text">
+               <string>Populate From Radiographs Subdirectory</string>
+              </property>
+             </widget>
+            </item>
+            <item row="10" column="0">
+             <spacer name="verticalSpacerTrialList">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>10</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item row="11" column="0">
+             <widget class="QLabel" name="partialVolumeListLabel">
+              <property name="text">
+               <string>Select Partial Volumes:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="11" column="1" colspan="4" rowspan="2">
+             <widget class="QListWidget" name="partialVolumeList">
+              <property name="styleSheet">
+               <string notr="true">
+                QListWidget::indicator:unchecked {
+                 background-color: palette(alternate-base);
+                }
+               </string>
+              </property>
+             </widget>
+            </item>
+            <item row="13" column="1" colspan="4">
+             <widget class="QPushButton" name="populatePartialVolumeListButton">
+              <property name="text">
+               <string>Populate From Volume Subdirectory</string>
+              </property>
+             </widget>
+            </item>
+            <item row="14" column="0">
+             <spacer name="verticalSpacerPVList">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>10</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
            </layout>
           </item>
-          <item row="1" column="0">
+          <item row="2" column="0">
            <layout class="QGridLayout" name="configParams">
             <item row="0" column="0">
              <widget class="QLabel" name="optOffLabel">

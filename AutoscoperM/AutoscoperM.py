@@ -212,14 +212,20 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Pre-processing Library Buttons
         self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCurrentNodeChanged)
+        # segmentation and PV generation
         self.ui.tiffGenButton.connect("clicked(bool)", self.onGeneratePartialVolumes)
-        self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
         self.ui.segGen_segmentationButton.connect("clicked(bool)", self.onSegmentation)
         self.ui.segSTL_importModelsButton.connect("clicked(bool)", self.onImportModels)
         self.ui.loadPVButton.connect("clicked(bool)", self.onLoadPV)
-        self.ui.populateTrialNameListButton.connect("clicked(bool)", self.onPopulateTrialNameList)
-        self.ui.populatePartialVolumeListButton.connect("clicked(bool)", self.onPopulatePartialVolumeList)
+        # config generation
         self.ui.populateCameraCalListButton.connect("clicked(bool)", self.onPopulateCameraCalList)
+        self.ui.stageCameraCalFileButton.setIcon(qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight))
+        self.ui.stageCameraCalFileButton.connect("clicked(bool)", self.onStageCameraCalFile)
+        self.ui.populateTrialNameListButton.connect("clicked(bool)", self.onPopulateTrialNameList)
+        self.ui.stageTrialDirButton.setIcon(qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight))
+        self.ui.stageTrialDirButton.connect("clicked(bool)", self.onStageTrialDir)
+        self.ui.populatePartialVolumeListButton.connect("clicked(bool)", self.onPopulatePartialVolumeList)
+        self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
 
         # Default output directory
         self.ui.mainOutputSelector.setCurrentPath(
@@ -519,6 +525,42 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 raise ValueError("Invalid paths")
                 return
 
+            def get_staged_items(listWidget):
+                staged_items = []
+                for row in range(listWidget.count):
+                    item = listWidget.item(row)
+                    widget = listWidget.itemWidget(item)
+
+                    # try to find the label of this item
+                    label = widget.findChild(qt.QLabel) if widget else None
+                    if not label:
+                        raise ValueError(f"Could not extract item label from list at index {row}")
+                    staged_items.append(label.text)
+
+                return staged_items
+
+            # extract filenames from UI lists, and use them to construct the paths relative to mainOutputDir.
+            # NOTE: We rely here on the order of the files as constructed by the user in the UI. The order of items
+            #       in the staged camera files list and the radiograph root dirs list are expected to match.
+            camCalFiles = [os.path.join(calibrationSubDir, item) for item in get_staged_items(camCalList)]
+            trialDirs = [os.path.join(radiographSubDir, item) for item in get_staged_items(trialList)]
+
+            if len(camCalFiles) == 0:
+                raise ValueError(
+                    "Invalid inputs: must select at least one camera calibration file, but zero were provided."
+                )
+
+            if len(trialDirs) == 0:
+                raise ValueError(
+                    "Invalid inputs: must select at least one radiograph subdirectory, but zero were provided."
+                )
+
+            if len(camCalFiles) != len(trialDirs):
+                raise ValueError(
+                    "Invalid inputs: number of selected trial directories must match the number "
+                    f"of camera calibration files: {len(camCalFiles)} != {len(trialDirs)}"
+                )
+
             def get_checked_items(listWidget):
                 checked_items = []
                 for idx in range(listWidget.count):
@@ -527,23 +569,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         checked_items.append(item.text())
                 return checked_items
 
-            # extract filenames from UI lists, and use them to construct the paths relative to mainOutputDir
-            # FIXME: don't assume the list of camera files is given in the same order as list of radiograph root dir!
-            camCalFiles = [os.path.join(calibrationSubDir, item) for item in get_checked_items(camCalList)]
-            trialDirs = [os.path.join(radiographSubDir, item) for item in get_checked_items(trialList)]
-
-            if len(camCalFiles) != len(trialDirs):
-                raise ValueError(
-                    "Invalid inputs: number of selected trial directories must match the number "
-                    f"of camera calibration files: {len(camCalFiles)} != {len(trialDirs)}"
-                )
-                return
-
             partialVolumeFiles = [os.path.join(tiffSubDir, item) for item in get_checked_items(partialVolumeList)]
 
             if len(partialVolumeFiles) == 0:
                 raise ValueError("Invalid inputs: at least one volume file must be selected!")
-                return
 
             optimizationOffsets = [
                 self.ui.optOffX.value,
@@ -582,7 +611,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 *voxel_spacing,
             ):
                 raise ValueError("Invalid inputs")
-                return
 
             # generate the config file
             IO.generateConfigFile(
@@ -750,7 +778,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Populates trial name UI list using files from the selected radiograph directory
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            self.populateListFromOutputSubDir(self.ui.trialList, self.ui.radiographSubDir.text, itemType="dir")
+            self.populateListFromOutputSubDir(self.ui.trialCandidateList, self.ui.radiographSubDir.text, itemType="dir")
 
     def onPopulatePartialVolumeList(self):
         """
@@ -764,7 +792,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Populates camera calibration UI list using files from the selected camera directory
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            self.populateListFromOutputSubDir(self.ui.camCalList, self.ui.cameraSubDir.text)
+            self.populateListFromOutputSubDir(self.ui.camCalCandidateList, self.ui.cameraSubDir.text)
 
     def populateListFromOutputSubDir(self, listWidget, fileSubDir, itemType="file"):
         """
@@ -802,6 +830,78 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             fileItem.setFlags(fileItem.flags() & ~qt.Qt.ItemIsSelectable)  # Remove the selectable flag
             fileItem.setCheckState(qt.Qt.Unchecked)
             listWidget.addItem(fileItem)
+
+    def onStageCameraCalFile(self):
+        """
+        Adds selected items from the camera calibration list to the staged files list
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.stageSelectedFiles(self.ui.camCalCandidateList, self.ui.camCalList)
+
+    def onStageTrialDir(self):
+        """
+        Adds selected items from the radiograph subdirectories list to the staged subdirs list
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.stageSelectedFiles(self.ui.trialCandidateList, self.ui.trialList)
+
+    def stageSelectedFiles(self, candidateListWidget, listWidget):
+        """
+        Stages chosen files into listWidget based on the selected items
+        in candidateListWidget which contains all candidate file names
+        """
+        # gether checked items from the input candidate list
+        checked_items = []
+        for idx in range(candidateListWidget.count):
+            item = candidateListWidget.item(idx)
+            if item.checkState() == qt.Qt.Checked:
+                checked_items.append(item.text())
+                item.setCheckState(qt.Qt.Unchecked)
+
+        if len(checked_items) == 0:
+            raise ValueError("No items were selected.")
+
+        def stagedItemExists(itemText):
+            # iterate over the list items and see if item with the given label already exists
+            for row in range(listWidget.count):
+                item = listWidget.item(row)
+                widget = listWidget.itemWidget(item)
+                if widget:
+                    # extract label to compare the text in the item
+                    label = widget.findChild(qt.QLabel)
+                    if label and label.text == itemText:
+                        return True
+            return False
+
+        # stage all selected items if they're not already in the target list
+        for file in checked_items:
+            if not stagedItemExists(file):
+                # create item widget with text and a delete button
+                itemBaseWidget = qt.QWidget()
+                itemLayout = qt.QHBoxLayout()
+                itemLabel = qt.QLabel(file)
+                itemDeleteButton = qt.QPushButton("Delete")
+
+                # set styling attributes to make it look nice in the UI
+                itemLayout.setContentsMargins(3, 1, 3, 1)
+                itemLayout.setSpacing(3)
+                itemDeleteButton.setSizePolicy(qt.QSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed))
+
+                itemLayout.addWidget(itemLabel)
+                # add spacing so that the delete button is always aligned to the right
+                itemLayout.addItem(qt.QSpacerItem(0, 0, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum))
+                itemLayout.addWidget(itemDeleteButton)
+                itemBaseWidget.setLayout(itemLayout)
+                itemWidget = qt.QListWidgetItem(listWidget)
+                itemWidget.setFlags(itemWidget.flags() & ~qt.Qt.ItemIsSelectable)
+
+                # finally, add the composite widget as an item to the list
+                listWidget.setItemWidget(itemWidget, itemBaseWidget)
+
+                # add delete functionality to the button
+                itemDeleteButton.clicked.connect(lambda _, item=itemWidget: listWidget.takeItem(listWidget.row(item)))
+            else:
+                logging.info(f"Skipped adding the item '{file}' as it already exists in the target list.")
 
 
 #
