@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 from itertools import product
@@ -34,53 +33,34 @@ def loadSegmentation(segmentationNode: slicer.vtkMRMLSegmentationNode, filename:
 
 
 def generateConfigFile(
-    mainDirectory: str,
-    subDirectories: list[str],
+    outputConfigPath: str,
     trialName: str,
+    camCalFiles: list[str],
+    camRootDirs: list[str],
+    volumeFiles: list[str],
     volumeFlip: list[int],
     voxelSize: list[float],
     renderResolution: list[int],
     optimizationOffsets: list[float],
-) -> str:
+) -> None:
     """
     Generates the v1.1 config file for the trial
 
-    :param mainDirectory: Main directory
-    :param subDirectories: Sub directories
+    :param outputConfigPath: The absolute path to the config file to be generated
     :param trialName: Trial name
-    :param volumeFlip: Volume flip
-    :param voxelSize: Voxel size
-    :param renderResolution: Render resolution
-    :param optimizationOffsets: Optimization offsets
+    :param camCalFiles: The list of camera calibration file paths, relative to the main output dir
+    :param camRootDirs: The list of the radiograph directory paths, relative to the main output dir
+    :param volumeFiles: The list of tiff volume files, relative to the main output dir
+    :param volumeFlip: The flip settings for each of the volumes
+    :param voxelSize: The voxel size of each of the the volumes
+    :param renderResolution: The resolution of the 2D rendering of each of the volumes
+    :param optimizationOffsets: The offsets for the optimization
 
     :return: Path to the config file
     """
     import datetime
 
-    # Get the camera calibration files, camera root directories, and volumes
-    volumes = glob.glob(os.path.join(mainDirectory, subDirectories[0], "*.tif"))
-    cameraRootDirs = glob.glob(os.path.join(mainDirectory, subDirectories[1], "*"))
-    calibrationFiles = glob.glob(os.path.join(mainDirectory, subDirectories[2], "*.json"))
-
-    # Check that we have the same number of camera calibration files and camera root directories
-    if len(calibrationFiles) != len(cameraRootDirs):
-        logging.error(
-            "Number of camera calibration files and camera root directories do not match: "
-            " {len(calibrationFiles)} != {len(cameraRootDirs)}"
-        )
-        return None
-
-    # Check that we have at least one volume
-    if len(volumes) == 0:
-        logging.error("No volumes found!")
-        return None
-
-    # Transform the paths to be relative to the main directory
-    calibrationFiles = [os.path.relpath(calibrationFile, mainDirectory) for calibrationFile in calibrationFiles]
-    cameraRootDirs = [os.path.relpath(cameraRootDir, mainDirectory) for cameraRootDir in cameraRootDirs]
-    volumes = [os.path.relpath(volume, mainDirectory) for volume in volumes]
-
-    with open(os.path.join(mainDirectory, trialName + ".cfg"), "w+") as f:
+    with open(outputConfigPath, "w+") as f:
         # Trial Name as comment
         f.write(f"# {trialName} configuration file\n")
         f.write(
@@ -94,19 +74,19 @@ def generateConfigFile(
 
         # Camera Calibration Files
         f.write("# Camera Calibration Files\n")
-        for calibrationFile in calibrationFiles:
+        for calibrationFile in camCalFiles:
             f.write("mayaCam_csv " + calibrationFile + "\n")
         f.write("\n")
 
         # Camera Root Directories
         f.write("# Camera Root Directories\n")
-        for cameraRootDir in cameraRootDirs:
+        for cameraRootDir in camRootDirs:
             f.write("CameraRootDir " + cameraRootDir + "\n")
         f.write("\n")
 
         # Volumes
         f.write("# Volumes\n")
-        for volume in volumes:
+        for volume in volumeFiles:
             f.write("VolumeFile " + volume + "\n")
             f.write("VolumeFlip " + " ".join([str(x) for x in volumeFlip]) + "\n")
             f.write("VoxelSize " + " ".join([str(x) for x in voxelSize]) + "\n")
@@ -121,8 +101,6 @@ def generateConfigFile(
         f.write("# Optimization Offsets\n")
         f.write("OptimizationOffsets " + " ".join([str(x) for x in optimizationOffsets]) + "\n")
         f.write("\n")
-
-    return os.path.join(mainDirectory, trialName + ".cfg")
 
 
 def writeVolume(volumeNode: slicer.vtkMRMLVolumeNode, filename: str):
