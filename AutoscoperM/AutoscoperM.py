@@ -211,11 +211,21 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Ankle"))
 
         # Pre-processing Library Buttons
+        self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCurrentNodeChanged)
+        # segmentation and PV generation
         self.ui.tiffGenButton.connect("clicked(bool)", self.onGeneratePartialVolumes)
-        self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
-        self.ui.segmentationButton.connect("clicked(bool)", self.onSegmentation)
-
+        self.ui.segGen_segmentationButton.connect("clicked(bool)", self.onSegmentation)
+        self.ui.segSTL_importModelsButton.connect("clicked(bool)", self.onImportModels)
         self.ui.loadPVButton.connect("clicked(bool)", self.onLoadPV)
+        # config generation
+        self.ui.populateCameraCalListButton.connect("clicked(bool)", self.onPopulateCameraCalList)
+        self.ui.stageCameraCalFileButton.setIcon(qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight))
+        self.ui.stageCameraCalFileButton.connect("clicked(bool)", self.onStageCameraCalFile)
+        self.ui.populateTrialNameListButton.connect("clicked(bool)", self.onPopulateTrialNameList)
+        self.ui.stageTrialDirButton.setIcon(qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight))
+        self.ui.stageTrialDirButton.connect("clicked(bool)", self.onStageTrialDir)
+        self.ui.populatePartialVolumeListButton.connect("clicked(bool)", self.onPopulatePartialVolumeList)
+        self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
 
         # Default output directory
         self.ui.mainOutputSelector.setCurrentPath(
@@ -224,6 +234,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+
+        # Trigger any required UI updates based on the volume node selected by default
+        self.onCurrentNodeChanged()
 
     def cleanup(self):
         """
@@ -410,6 +423,18 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for cam in range(numCams):
             self.logic.AutoscoperSocket.loadFilters(cam, filterSettings)
 
+    def onCurrentNodeChanged(self):
+        """
+        Updates and UI components that correspond to the selected input volume node
+        """
+        volumeNode = self.ui.volumeSelector.currentNode()
+        if volumeNode:
+            with slicer.util.tryWithErrorDisplay("Failed to grab volume node information", waitCursor=True):
+                vSizeX, vSizeY, vSizeZ = self.logic.GetVolumeSpacing(volumeNode)
+            self.ui.voxelSizeX.value = vSizeX
+            self.ui.voxelSizeY.value = vSizeY
+            self.ui.voxelSizeZ.value = vSizeZ
+
     def onGeneratePartialVolumes(self):
         """
         This function creates partial volumes for each segment in the segmentation node for the selected volume node.
@@ -465,34 +490,93 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
             volumeNode = self.ui.volumeSelector.currentNode()
             mainOutputDir = self.ui.mainOutputSelector.currentPath
-            trialName = self.ui.trialName.text
-            width = self.ui.vrgRes_width.value
-            height = self.ui.vrgRes_height.value
+            configFileName = self.ui.configFileName.text
+
+            configPath = os.path.join(mainOutputDir, f"{configFileName}.cfg")
 
             tiffSubDir = self.ui.tiffSubDir.text
-            vrgSubDir = self.ui.vrgSubDir.text
+            radiographSubDir = self.ui.radiographSubDir.text
             calibrationSubDir = self.ui.cameraSubDir.text
+
+            trialList = self.ui.trialList
+            partialVolumeList = self.ui.partialVolumeList
+            camCalList = self.ui.camCalList
 
             # Validate the inputs
             if not self.logic.validateInputs(
                 volumeNode=volumeNode,
                 mainOutputDir=mainOutputDir,
-                trialName=trialName,
-                width=width,
-                height=height,
-                volumeSubDir=tiffSubDir,
-                vrgSubDir=vrgSubDir,
+                configFileName=configFileName,
+                tiffSubDir=tiffSubDir,
+                radiographSubDir=radiographSubDir,
                 calibrationSubDir=calibrationSubDir,
+                trialList=trialList,
+                partialVolumeList=partialVolumeList,
+                camCalList=camCalList,
             ):
                 raise ValueError("Invalid inputs")
                 return
             if not self.logic.validatePaths(
                 mainOutputDir=mainOutputDir,
                 tiffDir=os.path.join(mainOutputDir, tiffSubDir),
-                vrgDir=os.path.join(mainOutputDir, vrgSubDir),
+                radiographSubDir=os.path.join(mainOutputDir, radiographSubDir),
                 calibDir=os.path.join(mainOutputDir, calibrationSubDir),
             ):
                 raise ValueError("Invalid paths")
+                return
+
+            def get_staged_items(listWidget):
+                staged_items = []
+                for row in range(listWidget.count):
+                    item = listWidget.item(row)
+                    widget = listWidget.itemWidget(item)
+
+                    # try to find the label of this item
+                    label = widget.findChild(qt.QLabel) if widget else None
+                    if not label:
+                        raise ValueError(f"Could not extract item label from list at index {row}")
+                    staged_items.append(label.text)
+
+                return staged_items
+
+
+            # extract filenames from UI lists, and use them to construct the paths relative to mainOutputDir.
+            # NOTE: We rely here on the order of the files as constructed by the user in the UI. The order of items
+            #       in the staged camera files list and the radiograph root dirs list are expected to match.
+            camCalFiles = [os.path.join(calibrationSubDir, item) for item in get_staged_items(camCalList)]
+            trialDirs = [os.path.join(radiographSubDir, item) for item in get_staged_items(trialList)]
+
+            if len(camCalFiles) == 0:
+                raise ValueError(
+                    "Invalid inputs: must select at least one camera calibration file, but zero were provided."
+                )
+                return
+
+            if len(trialDirs) == 0:
+                raise ValueError(
+                    "Invalid inputs: must select at least one radiograph subdirectory, but zero were provided."
+                )
+                return
+
+            if len(camCalFiles) != len(trialDirs):
+                raise ValueError(
+                    "Invalid inputs: number of selected trial directories must match the number "
+                    f"of camera calibration files: {len(camCalFiles)} != {len(trialDirs)}"
+                )
+                return
+
+            def get_checked_items(listWidget):
+                checked_items = []
+                for idx in range(listWidget.count):
+                    item = listWidget.item(idx)
+                    if item.checkState() == qt.Qt.Checked:
+                        checked_items.append(item.text())
+                return checked_items
+
+            partialVolumeFiles = [os.path.join(tiffSubDir, item) for item in get_checked_items(partialVolumeList)]
+
+            if len(partialVolumeFiles) == 0:
+                raise ValueError("Invalid inputs: at least one volume file must be selected!")
                 return
 
             optimizationOffsets = [
@@ -503,30 +587,92 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.optOffPitch.value,
                 self.ui.optOffRoll.value,
             ]
+
             volumeFlip = [
                 int(self.ui.flipX.isChecked()),
                 int(self.ui.flipY.isChecked()),
                 int(self.ui.flipZ.isChecked()),
             ]
 
-            voxel_spacing = self.logic.GetVolumeSpacing(volumeNode)
+            renderResolution = [
+                self.ui.configRes_width.value,
+                self.ui.configRes_height.value,
+            ]
+
+            voxel_spacing = [
+                self.ui.voxelSizeX.value,
+                self.ui.voxelSizeY.value,
+                self.ui.voxelSizeZ.value,
+            ]
+
+            # Validate the inputs
+            if not self.logic.validateInputs(
+                *trialDirs,
+                *partialVolumeFiles,
+                *camCalFiles,
+                *optimizationOffsets,
+                *volumeFlip,
+                *renderResolution,
+                *voxel_spacing,
+            ):
+                raise ValueError("Invalid inputs")
+                return
+
             # generate the config file
-            configFilePath = IO.generateConfigFile(
-                mainOutputDir,
-                [tiffSubDir, vrgSubDir, calibrationSubDir],
-                trialName,
+            IO.generateConfigFile(
+                outputConfigPath=configPath,
+                trialName=configFileName,
+                camCalFiles=camCalFiles,
+                camRootDirs=trialDirs,
+                volumeFiles=partialVolumeFiles,
                 volumeFlip=volumeFlip,
                 voxelSize=voxel_spacing,
-                renderResolution=[int(width / 2), int(height / 2)],
+                renderResolution=renderResolution,
                 optimizationOffsets=optimizationOffsets,
             )
 
-            self.ui.configSelector.setCurrentPath(configFilePath)
+            # Set the path to this newly created config file in the "Config File" field in the Autoscoper Control UI
+            self.ui.configSelector.setCurrentPath(configPath)
+        slicer.util.messageBox("Success!")
+
+    def onImportModels(self):
+        """
+        Imports Models from a directory- converts to Segmentation Nodes
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
+            self.ui.progressBar.setValue(0)
+            self.ui.progressBar.setMaximum(100)
+
+            volumeNode = self.ui.volumeSelector.currentNode()
+
+            if not self.logic.validateInputs(voluemNode=volumeNode):
+                raise ValueError("Invalid inputs")
+                return
+
+            if self.ui.segSTL_loadRadioButton.isChecked():
+                segmentationFileDir = self.ui.segSTL_modelsDir.currentPath
+                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
+                    raise ValueError("Invalid paths")
+                    return
+                segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
+                segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+                segmentationNode.CreateDefaultDisplayNodes()
+                for idx, file in enumerate(segmentationFiles):
+                    returnedNode = IO.loadSegmentation(segmentationNode, file)
+                    if returnedNode:
+                        # get the segment from the returned node and add it to the segmentation node
+                        segment = returnedNode.GetSegmentation().GetNthSegment(0)
+                        segmentationNode.GetSegmentation().AddSegment(segment)
+                        slicer.mrmlScene.RemoveNode(returnedNode)
+                    self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
+            else:  # Should never happen but just in case
+                raise Exception("Please select the 'Segmentation From Model' option in order to import models")
+                return
         slicer.util.messageBox("Success!")
 
     def onSegmentation(self):
         """
-        Either launches the automatic segmentation process or loads in a set of segmentations from a directory
+        Launches the automatic segmentation process
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results", waitCursor=True):
             self.ui.progressBar.setValue(0)
@@ -551,7 +697,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.logic.cleanFilename(currentVolumeNode.GetName(), i)
                     segmentationNode = SubVolumeExtraction.automaticSegmentation(
                         currentVolumeNode,
-                        self.ui.segGen_ThresholdSpinBox.value,
+                        self.ui.segGen_thresholdSpinBox.value,
                         self.ui.segGen_marginSizeSpin.value,
                         progressCallback=self.updateProgressBar,
                     )
@@ -561,24 +707,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         segmentationSequenceNode.SetDataNodeAtValue(segmentationNode, str(i))
                         slicer.mrmlScene.RemoveNode(segmentationNode)
                         currentVolumeNode = self.logic.getNextItemInSequence(volumeNode)
-            elif self.ui.segGen_fileRadioButton.isChecked():
-                segmentationFileDir = self.ui.segGen_lineEdit.currentPath
-                if not self.logic.validatePaths(segmentationFileDir=segmentationFileDir):
-                    raise ValueError("Invalid paths")
-                    return
-                segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
-                segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-                segmentationNode.CreateDefaultDisplayNodes()
-                for idx, file in enumerate(segmentationFiles):
-                    returnedNode = IO.loadSegmentation(segmentationNode, file)
-                    if returnedNode:
-                        # get the segment from the returned node and add it to the segmentation node
-                        segment = returnedNode.GetSegmentation().GetNthSegment(0)
-                        segmentationNode.GetSegmentation().AddSegment(segment)
-                        slicer.mrmlScene.RemoveNode(returnedNode)
-                    self.ui.progressBar.setValue((idx + 1) / len(segmentationFiles) * 100)
             else:  # Should never happen but just in case
-                raise Exception("No segmentation method selected")
+                raise Exception("Please select the 'Automatic Segmentation' option in order to generate segmentations")
                 return
         slicer.util.messageBox("Success!")
 
@@ -648,6 +778,138 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.logic.showVolumeIn3D(volumeNode)
 
         slicer.util.messageBox("Success!")
+
+    def onPopulateTrialNameList(self):
+        """
+        Populates trial name UI list using files from the selected radiograph directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.trialCandidateList, self.ui.radiographSubDir.text, itemType="dir")
+
+    def onPopulatePartialVolumeList(self):
+        """
+        Populates partial volumes UI list using files from the selected PV directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.partialVolumeList, self.ui.tiffSubDir.text)
+
+    def onPopulateCameraCalList(self):
+        """
+        Populates camera calibration UI list using files from the selected camera directory
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.populateListFromOutputSubDir(self.ui.camCalCandidateList, self.ui.cameraSubDir.text)
+
+    def populateListFromOutputSubDir(self, listWidget, fileSubDir, itemType="file"):
+        """
+        Populates input UI list with files/directories that exist in the given input directory
+        """
+        listWidget.clear()
+
+        mainOutputDir = self.ui.mainOutputSelector.currentPath
+        if not self.logic.validateInputs(
+            listWidget=listWidget,
+            mainOutputDir=mainOutputDir,
+            fileSubDir=fileSubDir,
+        ):
+            raise ValueError("Invalid inputs")
+            return
+
+        fileDir = os.path.join(mainOutputDir, fileSubDir)
+        if not self.logic.validatePaths(fileDir=fileDir):
+            raise ValueError(f"Invalid input: subdirectory '{fileDir}' does not exist.")
+            return
+
+        if itemType == "file":
+            listFiles = [f.name for f in os.scandir(fileDir) if os.path.isfile(f)]
+        elif itemType == "dir":
+            listFiles = [f.name for f in os.scandir(fileDir) if os.path.isdir(f)]
+        else:
+            raise ValueError(
+                "Invalid input: can either search for type 'file' or 'dir' "
+                f"in specified path, but given itemType='{itemType}'"
+            )
+            return
+
+        for file in sorted(listFiles):
+            fileItem = qt.QListWidgetItem(file)
+            fileItem.setFlags(fileItem.flags() & ~qt.Qt.ItemIsSelectable)  # Remove the selectable flag
+            fileItem.setCheckState(qt.Qt.Unchecked)
+            listWidget.addItem(fileItem)
+
+    def onStageCameraCalFile(self):
+        """
+        Adds selected items from the camera calibration list to the staged files list
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.stageSelectedFiles(self.ui.camCalCandidateList, self.ui.camCalList)
+
+    def onStageTrialDir(self):
+        """
+        Adds selected items from the radiograph subdirectories list to the staged subdirs list
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            self.stageSelectedFiles(self.ui.trialCandidateList, self.ui.trialList)
+
+    def stageSelectedFiles(self, candidateListWidget, listWidget):
+        """
+        Stages chosen files into listWidget based on the selected items
+        in candidateListWidget which contains all candidate file names
+        """
+        # gether checked items from the input candidate list
+        checked_items = []
+        for idx in range(candidateListWidget.count):
+            item = candidateListWidget.item(idx)
+            if item.checkState() == qt.Qt.Checked:
+                checked_items.append(item.text())
+                item.setCheckState(qt.Qt.Unchecked)
+
+        if len(checked_items) == 0:
+            raise ValueError("No items were selected.")
+
+        def stagedItemExists(itemText):
+            # iterate over the list items and see if item with the given label already exists
+            for row in range(listWidget.count):
+                item = listWidget.item(row)
+                widget = listWidget.itemWidget(item)
+                if widget:
+                    # extract label to compare the text in the item
+                    label = widget.findChild(qt.QLabel)
+                    if label and label.text == itemText:
+                        return True
+            return False
+
+        # stage all selected items if they're not already in the target list
+        for file in checked_items:
+            if not stagedItemExists(file):
+                # create item widget with text and a delete button
+                itemBaseWidget = qt.QWidget()
+                itemLayout = qt.QHBoxLayout()
+                itemLabel = qt.QLabel(file)
+                itemDeleteButton = qt.QPushButton("Delete")
+
+                # set styling attributes to make it look nice in the UI
+                itemLayout.setContentsMargins(3, 1, 3, 1)
+                itemLayout.setSpacing(3)
+                itemDeleteButton.setSizePolicy(qt.QSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed))
+
+                itemLayout.addWidget(itemLabel)
+                # add spacing so that the delete button is always aligned to the right
+                itemLayout.addItem(qt.QSpacerItem(0, 0, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum))
+                itemLayout.addWidget(itemDeleteButton)
+                itemBaseWidget.setLayout(itemLayout)
+                itemWidget = qt.QListWidgetItem(listWidget)
+                itemWidget.setFlags(itemWidget.flags() & ~qt.Qt.ItemIsSelectable)
+
+                # finally, add the composite widget as an item to the list
+                listWidget.setItemWidget(itemWidget, itemBaseWidget)
+
+                # add delete functionality to the button
+                itemDeleteButton.clicked.connect(
+                    lambda checked, item=itemWidget: listWidget.takeItem(listWidget.row(item))
+                )
+            else:
+                logging.info(f"Skipped adding the item '{file}' as it already exists in the target list.")
 
 
 #
