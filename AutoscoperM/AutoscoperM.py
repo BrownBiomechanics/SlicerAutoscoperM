@@ -18,7 +18,7 @@ from slicer.ScriptedLoadableModule import (
 )
 from slicer.util import VTKObservationMixin
 
-from AutoscoperMLib import IO, ErrorUtils, SubVolumeExtraction
+from AutoscoperMLib import IO, SubVolumeExtraction, Validation
 
 #
 # AutoscoperM
@@ -448,7 +448,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             modelSubDir = self.ui.modelSubDir.text
             segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
 
-            ErrorUtils.validateInputs(
+            Validation.validateInputs(
                 volumeNode=volumeNode,
                 segmentationNode=segmentationNode,
                 mainOutputDir=mainOutputDir,
@@ -502,7 +502,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             camCalList = self.ui.camCalList
 
             # Validate the inputs
-            ErrorUtils.validateInputs(
+            Validation.validateInputs(
                 volumeNode=volumeNode,
                 mainOutputDir=mainOutputDir,
                 configFileName=configFileName,
@@ -513,7 +513,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 partialVolumeList=partialVolumeList,
                 camCalList=camCalList,
             )
-            ErrorUtils.validatePaths(
+            Validation.validatePaths(
                 mainOutputDir=mainOutputDir,
                 tiffDir=os.path.join(mainOutputDir, tiffSubDir),
                 radiographSubDir=os.path.join(mainOutputDir, radiographSubDir),
@@ -596,7 +596,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             ]
 
             # Validate the extracted parameters
-            ErrorUtils.validateInputs(
+            Validation.validateInputs(
                 *trialDirs,
                 *partialVolumeFiles,
                 *camCalFiles,
@@ -633,12 +633,12 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             volumeNode = self.ui.volumeSelector.currentNode()
 
-            ErrorUtils.validateInputs(volumeNode=volumeNode)
+            Validation.validateInputs(volumeNode=volumeNode)
 
             if self.ui.segSTL_loadRadioButton.isChecked():
                 segmentationFileDir = self.ui.segSTL_modelsDir.currentPath
 
-                ErrorUtils.validatePaths(segmentationFileDir=segmentationFileDir)
+                Validation.validatePaths(segmentationFileDir=segmentationFileDir)
 
                 segmentationFiles = glob.glob(os.path.join(segmentationFileDir, "*.*"))
                 segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
@@ -666,7 +666,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             volumeNode = self.ui.volumeSelector.currentNode()
 
-            ErrorUtils.validateInputs(volumeNode=volumeNode)
+            Validation.validateInputs(volumeNode=volumeNode)
 
             if self.ui.segGen_autoRadioButton.isChecked():
                 currentVolumeNode = volumeNode
@@ -791,14 +791,14 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         listWidget.clear()
 
         mainOutputDir = self.ui.mainOutputSelector.currentPath
-        ErrorUtils.validateInputs(
+        Validation.validateInputs(
             listWidget=listWidget,
             mainOutputDir=mainOutputDir,
             fileSubDir=fileSubDir,
         )
 
         fileDir = os.path.join(mainOutputDir, fileSubDir)
-        ErrorUtils.validatePaths(fileDir=fileDir)
+        Validation.validatePaths(fileDir=fileDir)
 
         if itemType == "file":
             listFiles = [f.name for f in os.scandir(fileDir) if os.path.isfile(f)]

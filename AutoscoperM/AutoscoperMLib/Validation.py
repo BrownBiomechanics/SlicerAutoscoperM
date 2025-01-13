@@ -1,10 +1,9 @@
 import os
 
 
-#
-# ValueErrorsException: A custom exception class that accepts a list of errors
-#
 class ValueErrorsException(Exception):
+    """A custom exception class that accepts a list of errors."""
+
     def __init__(self, errors):
         if not isinstance(errors, list):
             raise ValueError("The errors input must be a list")
@@ -14,25 +13,18 @@ class ValueErrorsException(Exception):
         super().__init__("\n".join(errors))
 
     def __str__(self):
-        err_str = "Invalid value" if len(self.errors) == 1 else "Multiple invalid values"
+        err_str = "Invalid value{}".format("" if len(self.errors) == 0 else "s")
 
         return err_str + ":\n" + "\n".join(self.errors)
 
 
-#
-# helper functions
-#
-
-
-def validateInputs(*args: tuple, **kwargs: dict) -> bool:
+def validateInputs(*args: tuple, **kwargs: dict) -> None:
     """
     Validates that the provided inputs are not None or empty.
 
     :param args: list of inputs to validate
-    :param kwargs: list of inputs to validate
+    :param kwargs: dictionary of inputs to validate
     :raises: ValueErrorsException
-
-    :return: True if all inputs are valid
     """
     errors = []
     for arg in args:
@@ -47,21 +39,17 @@ def validateInputs(*args: tuple, **kwargs: dict) -> bool:
         if isinstance(arg, str) and arg == "":
             errors.append(f"Input '{name}' is an empty string")
 
-    if len(errors) != 0:
+    if len(errors) > 0:
         raise ValueErrorsException(errors)
 
-    return True
 
-
-def validatePaths(*args: tuple, **kwargs: dict) -> bool:
+def validatePaths(*args: tuple, **kwargs: dict) -> None:
     """
     Checks that the provided paths exist.
 
     :param args: list of paths to validate
     :param kwargs: list of paths to validate
     :raises: ValueErrorsException
-
-    :return: True if all paths exist
     """
     errors = []
     for arg in args:
@@ -72,7 +60,5 @@ def validatePaths(*args: tuple, **kwargs: dict) -> bool:
         if not os.path.exists(path):
             errors.append(f"Input path '{name}' ({path}) does not exist")
 
-    if len(errors) != 0:
+    if len(errors) > 0:
         raise ValueErrorsException(errors)
-
-    return True
