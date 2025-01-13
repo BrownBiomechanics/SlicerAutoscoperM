@@ -24,72 +24,140 @@ class TreeNode:
         self.hierarchyID = hierarchyID
         self.isRoot = isRoot
         self.parent = parent
-        self.ctSequence = ctSequence
 
         if self.parent is not None and self.isRoot:
             raise ValueError("Node cannot be root and have a parent")
 
         self.shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-        self.autoscoperLogic = AutoscoperMLogic()
-
         self.name = self.shNode.GetItemName(self.hierarchyID)
-        self.dataNode = self.shNode.GetItemDataNode(self.hierarchyID)
-        self.transformSequence = self._initializeTransforms()
+        self.model = self.shNode.GetItemDataNode(self.hierarchyID)
+
+        self.roi = self._generateRoiFromModel()
+        self.transformSequence = self._initializeTransforms(ctSequence)
+        self.croppedCtSequence = self._initializeCroppedCT(ctSequence)
 
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
         self.childNodes = [
-            TreeNode(hierarchyID=child_id, ctSequence=self.ctSequence, parent=self) for child_id in children_ids
+            TreeNode(hierarchyID=child_id, parent=self, ctSequence=ctSequence) for child_id in children_ids
         ]
 
-    def _initializeTransforms(self) -> slicer.vtkMRMLSequenceNode:
+    def _generateRoiFromModel(self) -> slicer.vtkMRMLMarkupsROINode:
+        mBounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.model.GetBounds(mBounds)
+
+        import numpy as np
+        # construct min and max coordinates of bounding box
+        bb_min = np.array([mBounds[0], mBounds[2], mBounds[4]])
+        bb_max = np.array([mBounds[1], mBounds[3], mBounds[5]])
+
+        bb_center = (bb_min + bb_max) / 2
+        bb_size = bb_min - bb_max
+
+        # Create ROI node
+        modelROI = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
+        modelROI.SetCenter(bb_center.tolist())
+        modelROI.SetSize(bb_size.tolist())
+        #modelROI.CreateDefaultDisplayNodes()  # only needed for display, TODO: hide
+        #modelROI.SetAttribute("Markups.MovingInSliceView", "");
+        #modelROI.SetAttribute("Markups.MovingMarkupIndex", "");
+        modelROI.SetName(f"{self.name}_roi")
+
+        return modelROI
+
+    def _initializeTransforms(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
         """Creates a new transform sequence in the same browser as the CT sequence."""
-        import logging
+        #TODO: make sure output transforms start at the appropriate if startIdx != 0.
 
-        try:
-            logging.info(f"Searching for {self.name} transforms")
-            newSequenceNode = slicer.util.getNode(f"{self.name}_transform_sequence")
-        except slicer.util.MRMLNodeNotFoundException:
-            try:  # Loading the sequence transforms from seq and tfm files can be wacky
-                logging.info(f"Searching for {self.name} transforms")
-                newSequenceNode = slicer.util.getNode(
-                    f"{self.name}_transform_sequence-{self.name}_transform_sequence-Seq"
-                )
-            except slicer.util.MRMLNodeNotFoundException:
-                logging.info(f"Transforms not found, Initializing {self.name}")
-                newSequenceNode = self.autoscoperLogic.createSequenceNodeInBrowser(
-                    f"{self.name}_transform_sequence", self.ctSequence
-                )
-                nodes = []
-                for i in range(self.ctSequence.GetNumberOfDataNodes()):
-                    curTfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"{self.name}-{i}")
-                    newSequenceNode.SetDataNodeAtValue(curTfm, f"{i}")
-                    nodes.append(curTfm)
-                [slicer.mrmlScene.RemoveNode(node) for node in nodes]
+        newSequenceNode = AutoscoperMLogic.createSequenceNodeInBrowser(
+            f"{self.name}_transform_sequence", ctSequence
+        )
+        identityTfm = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLinearTransformNode")
 
-                # Bit of a strange issue but the browser doesn't seem to update unless it moves to a new index,
-                # so we force it to update here
-                self.autoscoperLogic.getItemInSequence(newSequenceNode, 1)
-                self.autoscoperLogic.getItemInSequence(newSequenceNode, 0)
+        # batch the processing event for the addition of the transforms, for speedup
+        slicer.mrmlScene.StartState(slicer.vtkMRMLScene.BatchProcessState)
 
-                slicer.app.processEvents()
+        for i in range(ctSequence.GetNumberOfDataNodes()):
+            idxValue = ctSequence.GetNthIndexValue(i)
+            newSequenceNode.SetDataNodeAtValue(identityTfm, idxValue)
+
+        slicer.mrmlScene.EndState(slicer.vtkMRMLScene.BatchProcessState)
+        slicer.app.processEvents()
         return newSequenceNode
 
-    def _applyTransform(self, transform: slicer.vtkMRMLTransformNode, idx: int) -> None:
-        """Applies and hardends a transform node to the transform in the sequence at the provided index."""
-        if idx >= self.transformSequence.GetNumberOfDataNodes():
-            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
-            return
-        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-        current_transform.SetAndObserveTransformNodeID(transform.GetID())
-        current_transform.HardenTransform()
+    def _initializeCroppedCT(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
+        """Creates a new (but empty) volume sequence in the same browser as the CT sequence."""
+
+        newSequenceNode = AutoscoperMLogic.createSequenceNodeInBrowser(
+            f"{self.name}_cropped_CT_sequence", ctSequence
+        )
+
+        return newSequenceNode
+
+    def setupFrame(self, frameIdx, ctFrame) -> None:
+        """
+        TODO description
+        """
+        # prompt user to adjust initial guess, then crop target volume
+        initial_tfm = self.getTransform(frameIdx)  # for root, this will just be the identity
+        self.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
+        #initial_tfm.user_adjust_model() # optionally user adjusts initial guess for this bone in initial frame
+
+        # generate cropped volume from frame
+        self.roi.SetAndObserveTransformNodeID(initial_tfm.GetID())
+        self.cropFrameFromRoi(frameIdx, ctFrame)
+
+        return initial_tfm
+
+    def cropFrameFromRoi(self, frame_idx, targetFrame) -> None:
+        """
+        TODO description
+        """
+        outputVolumeNode = self.croppedCtSequence.GetDataNodeAtValue(frame_idx, exactMatchRequired=True)
+        if not outputVolumeNode:
+            # create volume node for the output of the cropping, and add it to the sequence
+            outputVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLVolumeNode")
+            #outputVolumeNode.SetName(f"{targetFrame.GetName()}_{self.name}_cropped")
+            self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, frame_idx)
+
+            # initialize croppping configuration
+            cvpn = slicer.vtkMRMLCropVolumeParametersNode()
+            cvpn.SetROINodeID(self.roi.GetID())
+            cvpn.SetInputVolumeNodeID(targetFrame.GetID())
+            cvpn.SetOutputVolumeNodeID(outputVolumeNode.GetID())
+            cvpn.SetVoxelBased(True)
+
+            # apply the cropping
+            cropLogic = slicer.modules.cropvolume.logic()
+            cropLogic.Apply(cvpn)
+
+            # display pretty:
+            # https://www.slicer.org/wiki/Documentation/4.3/Developers/Python_scripting
+            views = slicer.app.layoutManager().sliceViewNames()
+            for view in views:
+                view_logic = slicer.app.layoutManager().sliceWidget(view).sliceLogic()
+                view_cn = view_logic.GetSliceCompositeNode()
+                view_cn.SetBackgroundVolumeID(outputVolumeNode.GetID())
+                view_logic.FitSliceToAll()
+            # TODO: hide?
+
+        return outputVolumeNode
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
         if idx >= self.transformSequence.GetNumberOfDataNodes():
             logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
             return None
-        return self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        return AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
+
+    def _applyTransform(self, idx: int, transform: slicer.vtkMRMLTransformNode) -> None:
+        """Applies and hardends a transform node to the transform in the sequence at the provided index."""
+        if idx >= self.transformSequence.GetNumberOfDataNodes():
+            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+            return
+        current_transform = AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform.SetAndObserveTransformNodeID(transform.GetID())
+        current_transform.HardenTransform()
 
     def setTransformFromNode(self, transform: slicer.vtkMRMLLinearTransformNode, idx: int) -> None:
         """Sets the transform for the provided index."""
@@ -98,23 +166,22 @@ class TreeNode:
             return
         mat = vtk.vtkMatrix4x4()
         transform.GetMatrixTransformToParent(mat)
-        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform = AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
         current_transform.SetMatrixTransformToParent(mat)
 
-    def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:
+    def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None: # TODO: revisit for import
         if idx >= self.transformSequence.GetNumberOfDataNodes():
             logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
             return
-        current_transform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
+        current_transform = AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
         current_transform.SetMatrixTransformToParent(transform)
 
-    def applyTransformToChildren(self, idx: int) -> None:
-        """Applies the transform at the provided index to all children of this node."""
-        if idx >= self.transformSequence.GetNumberOfDataNodes():
-            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
-            return
-        applyTransform = self.autoscoperLogic.getItemInSequence(self.transformSequence, idx)[0]
-        [childNode.setTransformFromNode(applyTransform, idx) for childNode in self.childNodes]
+    def applyTransformToTree(self, idx: int, transform: slicer.vtkMRMLLinearTransformNode) -> None:
+        """Applies the transform at the provided index to this node and all its children."""
+        # apply the transform first to this node
+        self._applyTransform(idx, transform)
+        # recurse down all child nodes and apply it to them as well
+        [childNode.applyTransformToTree(idx, transform) for childNode in self.childNodes]
 
     def copyTransformToNextFrame(self, currentIdx: int) -> None:
         """Copies the transform at the provided index to the next frame."""
@@ -123,11 +190,15 @@ class TreeNode:
         currentTransform = self.getTransform(currentIdx)
         transformMatrix = vtk.vtkMatrix4x4()
         currentTransform.GetMatrixTransformToParent(transformMatrix)
-        nextTransform = self.getTransform(currentIdx + 1)
+
+        nextIdx = currentIdx + 1
+        nextTransform = self.getTransform(nextIdx)
         if nextTransform is not None:
             nextTransform.SetMatrixTransformToParent(transformMatrix)
+        else:
+            logging.error(f"DEBUGGING copyTransformToNextFrame: nextTransform is None at nextIdx={nextIdx}")
 
-    def exportTransformsAsTRAFile(self, exportDir: str):
+    def exportTransformsAsTRAFile(self, exportDir: str): # TODO: revisit for export
         """Exports the sequence as a TRA file for reading into Autoscoper."""
         # Convert the sequence to a list of vtkMatrices
         transforms = []
@@ -142,7 +213,7 @@ class TreeNode:
         filename = os.path.join(exportDir, f"{self.name}-abs-RAS.tra")
         IO.writeTRA(filename, transforms)
 
-    def importTransfromsFromTRAFile(self, filename: str):
+    def importTransfromsFromTRAFile(self, filename: str): # TODO: revisit for import
         import numpy as np
 
         tra = np.loadtxt(filename, delimiter=",")
