@@ -121,13 +121,13 @@ def registerSampleData():
     Add data sets to Sample Data module.
     """
     registerAutoscoperSampleData(
-        "Wrist", "2023-08-01", checksum="SHA256:86a914ec822d88d3cbd70135ac77212207856c71a244d18b0e150f246f0e8ab2"
+        "Wrist", "2025-01-12", checksum="SHA256:13eca7b7ddbf3111c433d10871aa5ee7328d056427cdaaf9407038a021ab8326"
     )
     registerAutoscoperSampleData(
-        "Knee", "2023-08-01", checksum="SHA256:ffdba730e8792ee8797068505ae502ed6edafe26e70597ff10a2e017a4162767"
+        "Knee", "2025-01-12", checksum="SHA256:b0cac0bd9d4320e3abaeff6f4236a7c40f947c7f8b4b2faf25fe94a8af2c161d"
     )
     registerAutoscoperSampleData(
-        "Ankle", "2023-08-01", checksum="SHA256:9e666e0dbca0c556072d2c9c18f4ddc74bfb328b98668c7f65347e4746431e33"
+        "Ankle", "2025-01-12", checksum="SHA256:db39b4ebbdc8e2e5a939b3ddc6dc275316cf3043dc39f51893ac6b364d7a04ba"
     )
 
 
