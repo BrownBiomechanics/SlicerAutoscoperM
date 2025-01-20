@@ -429,22 +429,30 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
     def registerRigidBody(
         self,
-        CT: vtkMRMLScalarVolumeNode,
-        partialVolume: vtkMRMLScalarVolumeNode,
+        sourceVolume: vtkMRMLScalarVolumeNode,
+        targetVolume: vtkMRMLScalarVolumeNode,
         transformNode: vtkMRMLTransformNode,
     ):
-        """Registers a partial volume to a CT scan, uses ITKElastix."""
+        """
+        Registers a partial volume to a CT scan, uses ITKElastix
+        The output of this function is written into transformNode such that,
+        when applied on the source image, will align it with the target image.
+
+        :param sourceVolume: the source input to be registered, aka the "moving image"
+        :param targetVolume: the target input to be registered, aka the "fixed image"
+        :param transformNode: the node in which the results transform
+        """
         from tempfile import NamedTemporaryFile
 
         # Apply the initial guess if there is one
-        partialVolume.SetAndObserveTransformNodeID(None)
-        partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
-        partialVolume.HardenTransform()
+        sourceVolume.SetAndObserveTransformNodeID(None)
+        sourceVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+        sourceVolume.HardenTransform()
 
         # Register with Elastix
         with NamedTemporaryFile(suffix=".mha") as movingTempFile, NamedTemporaryFile(suffix=".mha") as fixedTempFile:
-            slicer.util.saveNode(CT, movingTempFile.name)
-            slicer.util.saveNode(partialVolume, fixedTempFile.name)
+            slicer.util.saveNode(sourceVolume, movingTempFile.name)
+            slicer.util.saveNode(targetVolume, fixedTempFile.name)
 
             movingITKImage = self.itk.imread(movingTempFile.name, self.itk.F)
             fixedITKImage = self.itk.imread(fixedTempFile.name, self.itk.F)
@@ -462,17 +470,20 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
             except Exception:
                 # Remove the hardened initial guess and then throw the exception
                 transformNode.Inverse()
-                partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
-                partialVolume.HardenTransform()
+                sourceVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+                sourceVolume.HardenTransform()
                 transformNode.Inverse()
                 raise
 
         resultTransform = self.parameterObject2SlicerTransform(elastixObj.GetTransformParameterObject())
+        # The elastix result represents the transformation from the fixed to the moving
+        # image, we so invert it to get the transform from the moving to the fixed
+        resultTransform.Inverse()
 
         # Remove the hardened initial guess
         transformNode.Inverse()
-        partialVolume.SetAndObserveTransformNodeID(transformNode.GetID())
-        partialVolume.HardenTransform()
+        sourceVolume.SetAndObserveTransformNodeID(transformNode.GetID())
+        sourceVolume.HardenTransform()
         transformNode.Inverse()
 
         # Combine the initial and result transforms
