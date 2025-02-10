@@ -190,11 +190,11 @@ class TrackingEvaluationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin
         ankleRadio = self.ui.ankleRadioButton.isChecked()
         sampleDataType = ""
         if wristRadio:
-            sampleDataType = "2023-08-01-Wrist"
+            sampleDataType = "2025-01-12-Wrist"
         elif kneeRadio:
-            sampleDataType = "2023-08-01-Knee"
+            sampleDataType = "2025-02-10-Knee"
         elif ankleRadio:
-            sampleDataType = "2023-08-01-Ankle"
+            sampleDataType = "2025-01-12-Ankle"
 
         # Get the tracking data
         trackingData = self.ui.userTrackingSelector.currentPath

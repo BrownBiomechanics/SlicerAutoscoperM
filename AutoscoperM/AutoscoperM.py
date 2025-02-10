@@ -110,9 +110,9 @@ def registerAutoscoperSampleData(dataType, version, checksum):
 def sampleDataConfigFile(dataType):
     """Return the trial config filename."""
     return {
-        "2023-08-01-Wrist": "2023-07-20-Wrist.cfg",
-        "2023-08-01-Knee": "2023-07-26-Knee.cfg",
-        "2023-08-01-Ankle": "2023-07-20-Ankle.cfg",
+        "2025-01-12-Wrist": "2023-07-20-Wrist.cfg",
+        "2025-02-10-Knee": "Knee_Sample_Data.cfg",
+        "2025-01-12-Ankle": "2023-07-20-Ankle.cfg",
     }.get(dataType)
 
 
@@ -124,7 +124,7 @@ def registerSampleData():
         "Wrist", "2025-01-12", checksum="SHA256:13eca7b7ddbf3111c433d10871aa5ee7328d056427cdaaf9407038a021ab8326"
     )
     registerAutoscoperSampleData(
-        "Knee", "2025-01-12", checksum="SHA256:b0cac0bd9d4320e3abaeff6f4236a7c40f947c7f8b4b2faf25fe94a8af2c161d"
+        "Knee", "2025-02-10", checksum="SHA256:02442eafc71b7d7ac2e6d57d510fc0d3e2c775db2ea458659142316f004b6af6"
     )
     registerAutoscoperSampleData(
         "Ankle", "2025-01-12", checksum="SHA256:db39b4ebbdc8e2e5a939b3ddc6dc275316cf3043dc39f51893ac6b364d7a04ba"
@@ -206,9 +206,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.autoscoperRenderingBackendComboBox.addItems(list(self.autoscoperExecutables.keys()))
 
         # Sample Data Buttons
-        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Wrist"))
-        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Knee"))
-        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2023-08-01-Ankle"))
+        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-01-12-Wrist"))
+        self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-02-10-Knee"))
+        self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-01-12-Ankle"))
 
         # Pre-processing Library Buttons
         self.ui.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCurrentNodeChanged)
