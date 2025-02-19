@@ -228,9 +228,10 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.configGenButton.connect("clicked(bool)", self.onGenerateConfig)
 
         # Default output directory
-        self.ui.mainOutputSelector.setCurrentPath(
-            os.path.join(slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory(), "AutoscoperM-Pre-Processing")
+        self.defaultOuputDir = os.path.join(
+            slicer.mrmlScene.GetCacheManager().GetRemoteCacheDirectory(), "AutoscoperM-Pre-Processing"
         )
+        self.ui.mainOutputSelector.setCurrentPath(self.defaultOuputDir)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -458,6 +459,25 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 modelSubDir=modelSubDir,
             )
 
+            # if output files already exist, confirm with user whether to overwrite
+            if (
+                mainOutputDir != self.defaultOuputDir
+                and self.logic.pathsExistWithFiles(
+                    os.path.join(mainOutputDir, tiffSubDir),
+                    os.path.join(mainOutputDir, tfmSubDir),
+                    os.path.join(mainOutputDir, modelSubDir),
+                )
+                and not slicer.util.confirmOkCancelDisplay(
+                    "Existing pre-processing results were detected in the specified output subdirectories.\n\n"
+                    "Would you like to proceed and risk overwriting them?\n\n"
+                    "Click 'OK' to proceed with partial volume generation.\n"
+                    "Click 'Cancel' to stop the process.\n",
+                    dontShowAgainSettingsKey="AutoscoperM/DontShowPartialVolumesGenerationOutputOverwriteWarning",
+                )
+            ):
+                return
+
+            # if the output paths don't already exist, create them
             self.logic.createPathsIfNotExists(
                 mainOutputDir,
                 os.path.join(mainOutputDir, tiffSubDir),
@@ -465,6 +485,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 os.path.join(mainOutputDir, trackingSubDir),
                 os.path.join(mainOutputDir, modelSubDir),
             )
+
             self.ui.progressBar.setValue(0)
             self.ui.progressBar.setMaximum(100)
             self.logic.saveSubVolumesFromSegmentation(
@@ -1166,6 +1187,16 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         volumeNode.AddAndObserveDisplayNodeID(displayNode.GetID())
         logic.UpdateDisplayNodeFromVolumeNode(displayNode, volumeNode)
         slicer.mrmlScene.RemoveNode(slicer.util.getNode("Volume rendering ROI"))
+
+    @staticmethod
+    def pathsExistWithFiles(*args: tuple) -> bool:
+        """
+        Checks if the given paths exist and if they contain any existing files.
+
+        :param args: list of paths to check
+        :return: True if any of the paths exist and contain files, False otherwise
+        """
+        return any(os.path.exists(arg) and len(os.listdir(arg)) > 0 for arg in args)
 
     @staticmethod
     def createPathsIfNotExists(*args: tuple) -> None:
