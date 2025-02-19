@@ -1081,7 +1081,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             dicom2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-DICOM2AUT.tfm")
             slicer.util.exportNode(dicom2autNode, dicom2autFilename)
 
-            stlFilename = os.path.join(outputDir, modelSubDir, f"AUT_{segmentVolume.GetName()}.stl")
+            stlFilename = os.path.join(outputDir, modelSubDir, "AUT", f"AUT_{segmentVolume.GetName()}.stl")
             self.exportSTLFromSegment(segmentationNode, segmentID, stlFilename, dicom2autNode.GetTransformToParent())
 
             slicer.mrmlScene.RemoveNode(dicom2autNode)
