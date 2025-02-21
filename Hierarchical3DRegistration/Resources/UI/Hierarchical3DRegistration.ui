@@ -17,14 +17,40 @@
       <string>Registration</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="4" column="0">
-       <widget class="QLabel" name="label_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>Frames</string>
+         <string>Hierarchy:</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="1" colspan="5">
+      <item row="0" column="1" colspan="5">
+       <widget class="qMRMLSubjectHierarchyComboBox" name="SubjectHierarchyComboBox">
+        <property name="includeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="includeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeItemAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <property name="excludeNodeAttributeNamesFilter">
+         <stringlist notr="true"/>
+        </property>
+        <!-- <property name="SlicerParameterName" stdset="0"> -->
+        <!--  <string>hierarchyRootID</string> -->
+        <!-- </property> -->
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Input CT Sequence:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="5">
        <widget class="qMRMLNodeComboBox" name="inputSelectorCT">
         <property name="enabled">
          <bool>false</bool>
@@ -47,11 +73,18 @@
          <bool>false</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>inputVolumeSequence</string>
+         <string>volumeSequence</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="1">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Frames:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
        <widget class="QSpinBox" name="startFrame">
         <property name="minimum">
          <number>0</number>
@@ -62,62 +95,12 @@
         <property name="value">
          <number>0</number>
         </property>
-       </widget>
-      </item>
-      <item row="0" column="1" colspan="5">
-       <widget class="qMRMLSubjectHierarchyComboBox" name="SubjectHierarchyComboBox">
-        <property name="includeItemAttributeNamesFilter">
-         <stringlist notr="true"/>
-        </property>
-        <property name="includeNodeAttributeNamesFilter">
-         <stringlist notr="true"/>
-        </property>
-        <property name="excludeItemAttributeNamesFilter">
-         <stringlist notr="true"/>
-        </property>
-        <property name="excludeNodeAttributeNamesFilter">
-         <stringlist notr="true"/>
-        </property>
-        <!-- <property name="SlicerParameterName" stdset="0"> -->
-        <!--  <string>inputHierarchyRootID</string> -->
-        <!-- </property> -->
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Input CT Sequence:</string>
+        <property name="SlicerParameterName" stdset="0">
+         <string>startFrame</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="1" colspan="5">
-       <widget class="QPushButton" name="applyButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="toolTip">
-         <string>Run the algorithm.</string>
-        </property>
-        <property name="text">
-         <string>Apply</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <widget class="QCheckBox" name="onlyTrackRootNodeCheckBox">
-        <property name="text">
-         <string>Track Root Node Only</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Hierarchy:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="4">
+      <item row="2" column="2" colspan="3">
        <widget class="ctkRangeSlider" name="frameSlider">
         <property name="maximum">
          <number>0</number>
@@ -136,13 +119,95 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="5">
+      <item row="2" column="5">
        <widget class="QSpinBox" name="endFrame">
         <property name="maximum">
          <number>0</number>
         </property>
         <property name="value">
          <number>0</number>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>endFrame</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QCheckBox" name="onlyTrackRootNodeCheckBox">
+        <property name="text">
+         <string>Track Root Node Only</string>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>trackOnlyRoot</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="2">
+       <widget class="QCheckBox" name="skipManualTfmAdjustmentCheckBox">
+        <property name="text">
+         <string>Skip Initial Guess Adjustment</string>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>skipManualTfmAdjustments</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0" colspan="6">
+       <layout class="QGridLayout" name="trackingButtonsLayout">
+        <item row="0" column="0">
+         <widget class="QPushButton" name="abortButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>Abort the current registration process.</string>
+          </property>
+          <property name="text">
+           <string>Abort</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="initializeButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>Begin the registration process for the selected input fields.</string>
+          </property>
+          <property name="text">
+           <string>Initialize Registration</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QPushButton" name="registerButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>Run the algorithm.</string>
+          </property>
+          <property name="text">
+           <string>Set Initial Guess</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="5" column="0" colspan="6">
+       <widget class="QLabel" name="registrationStatusLabel">
+		<property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">color: blue;</string>
         </property>
        </widget>
       </item>

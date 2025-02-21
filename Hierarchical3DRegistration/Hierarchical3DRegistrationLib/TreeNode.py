@@ -113,15 +113,11 @@ class TreeNode:
         Return a cropped volume from the given CT frame based on the initial guess
         transform for the given frame and this model's ROI.
         """
-        # TODO: user to manual adjust the initial transform
-
         initial_tfm = self.getTransform(frameIdx)  # for the root node, this will just be the identity
         # generate cropped volume from the given frame
         self.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
         self.roi.SetAndObserveTransformNodeID(initial_tfm.GetID())
         self.cropFrameFromRoi(frameIdx, ctFrame)
-
-        return initial_tfm
 
     def cropFrameFromRoi(self, frame_idx, targetFrame) -> None:
         """
