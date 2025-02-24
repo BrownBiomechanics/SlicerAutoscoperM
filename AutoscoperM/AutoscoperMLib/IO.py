@@ -1,6 +1,5 @@
 import logging
 import os
-from itertools import product
 
 import numpy as np
 import slicer
@@ -202,12 +201,3 @@ def writeTFMFile(filename: str, spacing: list[float], origin: list[float]):
     slicer.util.exportNode(transformNode, filename)
 
     slicer.mrmlScene.RemoveNode(transformNode)
-
-
-def writeTRA(fileName: str, transforms: list[vtk.vtkMatrix4x4]) -> None:
-    rowWiseStrings = []
-    for transform in transforms:
-        rowWiseStrings.append([str(transform.GetElement(i, j)) for i, j in product(range(4), range(4))])
-    with open(fileName, "w+") as traFile:
-        for row in rowWiseStrings:
-            traFile.write(",".join(row) + "\n")

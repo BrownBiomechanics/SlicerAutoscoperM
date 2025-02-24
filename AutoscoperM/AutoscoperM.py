@@ -444,7 +444,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             mainOutputDir = self.ui.mainOutputSelector.currentPath
             tiffSubDir = self.ui.tiffSubDir.text
             tfmSubDir = self.ui.tfmSubDir.text
-            trackingSubDir = self.ui.trackingSubDir.text
             modelSubDir = self.ui.modelSubDir.text
             segmentationNode = self.ui.pv_SegNodeComboBox.currentNode()
 
@@ -454,7 +453,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir=mainOutputDir,
                 volumeSubDir=tiffSubDir,
                 transformSubDir=tfmSubDir,
-                trackingSubDir=trackingSubDir,
                 modelSubDir=modelSubDir,
             )
 
@@ -462,7 +460,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir,
                 os.path.join(mainOutputDir, tiffSubDir),
                 os.path.join(mainOutputDir, tfmSubDir),
-                os.path.join(mainOutputDir, trackingSubDir),
                 os.path.join(mainOutputDir, modelSubDir),
             )
             self.ui.progressBar.setValue(0)
@@ -473,7 +470,6 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 mainOutputDir,
                 volumeSubDir=tiffSubDir,
                 transformSubDir=tfmSubDir,
-                trackingSubDir=trackingSubDir,
                 modelSubDir=modelSubDir,
                 progressCallback=self.updateProgressBar,
             )
@@ -1011,7 +1007,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         outputDir: str,
         volumeSubDir: str = "Volumes",
         transformSubDir: str = "Transforms",
-        trackingSubDir: str = "Tracking",
         modelSubDir: str = "Models",
         progressCallback: Optional[callable] = None,
     ) -> bool:
@@ -1039,13 +1034,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         segmentIDs = vtk.vtkStringArray()
         segmentationNode.GetSegmentation().GetSegmentIDs(segmentIDs)
         numSegments = segmentIDs.GetNumberOfValues()
-
-        tfmFiles = glob.glob(os.path.join(outputDir, transformSubDir, "*.tfm"))
-        tfms = [tfm if os.path.basename(tfm).split(".")[0] == "Origin2Dicom" else None for tfm in tfmFiles]
-        try:
-            origin2DicomTransformFile = next(item for item in tfms if item is not None)
-        except StopIteration:
-            origin2DicomTransformFile = None
 
         for idx in range(numSegments):
             segmentID = segmentIDs.GetValue(idx)
@@ -1085,36 +1073,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             self.exportSTLFromSegment(segmentationNode, segmentID, stlFilename, dicom2autNode.GetTransformToParent())
 
             slicer.mrmlScene.RemoveNode(dicom2autNode)
-
-            # Create TRA file
-            tfm = vtk.vtkMatrix4x4()
-            tfm.SetElement(0, 3, origin[0])
-            tfm.SetElement(1, 3, origin[1])
-            tfm.SetElement(2, 3, origin[2])
-
-            if origin2DicomTransformFile is not None:
-                origin2DicomNode = self.loadTransformFromFile(origin2DicomTransformFile)
-                origin2DicomNode.Inverse()
-                tfm = self.applyOrigin2DicomTransform(tfm, origin2DicomNode)
-                slicer.mrmlScene.RemoveNode(origin2DicomNode)
-
-            tfm = self.applyPVol2AutTransform(tfm, pvol2autNode)
-            slicer.mrmlScene.RemoveNode(pvol2autNode)
-
-            tfmR = vtk.vtkMatrix3x3()
-            vtkAddon.vtkAddonMathUtilities.GetOrientationMatrix(tfm, tfmR)
-
-            # Apply RAS to LPS transform
-            RAS2LPS = vtk.vtkMatrix3x3()
-            RAS2LPS.SetElement(0, 0, -1)
-            RAS2LPS.SetElement(1, 1, -1)
-
-            vtk.vtkMatrix3x3.Multiply3x3(tfmR, RAS2LPS, tfmR)
-            vtkAddon.vtkAddonMathUtilities.SetOrientationMatrix(tfmR, tfm)
-
-            # Save TRA file
-            filename = os.path.join(outputDir, trackingSubDir, f"{segmentName}.tra")
-            IO.writeTRA(filename, [tfm])
 
             # update progress bar
             progressCallback((idx + 1) / numSegments * 100)
@@ -1179,57 +1137,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
                 os.makedirs(arg)
 
     @staticmethod
-    def extractSubVolumeForVRG(
-        volumeNode: slicer.vtkMRMLVolumeNode,
-        segmentationNode: slicer.vtkMRMLSegmentationNode,
-        cameraDebugMode: bool = False,
-    ) -> tuple[vtk.vtkImageData, list[float]]:
-        """
-        Extracts a subvolume from the volumeNode that contains all of the segments in the segmentationNode
-
-        :param volumeNode: volume node
-        :param segmentationNode: segmentation node
-        :param cameraDebugMode: Whether or not to keep the extracted volume in the scene, defaults to False
-
-        :return: tuple containing the extracted volume and the bounds of the volume
-        """
-        mergedSegmentationNode = SubVolumeExtraction.mergeSegments(volumeNode, segmentationNode)
-        newVolumeNode = SubVolumeExtraction.extractSubVolume(
-            volumeNode, mergedSegmentationNode, mergedSegmentationNode.GetSegmentation().GetNthSegmentID(0)
-        )
-        newVolumeNode.SetName(volumeNode.GetName() + " - Bone Subvolume")
-
-        bounds = [0, 0, 0, 0, 0, 0]
-        newVolumeNode.GetBounds(bounds)
-
-        # Copy the metadata from the original volume into the ImageData
-        newVolumeImageData = vtk.vtkImageData()
-        newVolumeImageData.DeepCopy(newVolumeNode.GetImageData())  # So we don't modify the original volume
-        newVolumeImageData.SetSpacing(newVolumeNode.GetSpacing())
-        origin = list(newVolumeNode.GetOrigin())
-        origin[0:2] = [x * -1 for x in origin[0:2]]
-        newVolumeImageData.SetOrigin(origin)
-
-        # Ensure we are in the correct orientation (RAS vs LPS)
-        imageReslice = vtk.vtkImageReslice()
-        imageReslice.SetInputData(newVolumeImageData)
-
-        axes = vtk.vtkMatrix4x4()
-        axes.Identity()
-        axes.SetElement(0, 0, -1)
-        axes.SetElement(1, 1, -1)
-
-        imageReslice.SetResliceAxes(axes)
-        imageReslice.Update()
-        newVolumeImageData = imageReslice.GetOutput()
-
-        if not cameraDebugMode:
-            slicer.mrmlScene.RemoveNode(newVolumeNode)
-            slicer.mrmlScene.RemoveNode(mergedSegmentationNode)
-
-        return newVolumeImageData, bounds
-
-    @staticmethod
     def getItemInSequence(sequenceNode: slicer.vtkMRMLSequenceNode, idx: int) -> slicer.vtkMRMLNode:
         """
         Returns the item at the specified index in the sequence node
@@ -1290,24 +1197,6 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         if AutoscoperMLogic.IsSequenceVolume(node):
             return AutoscoperMLogic.getItemInSequence(node, 0)[0].GetSpacing()
         return node.GetSpacing()
-
-    @staticmethod
-    def loadTransformFromFile(transformFileName: str) -> slicer.vtkMRMLLinearTransformNode:
-        return slicer.util.loadNodeFromFile(transformFileName)
-
-    @staticmethod
-    def applyOrigin2DicomTransform(
-        transform: vtk.vtkMatrix4x4,
-        origin2DicomTransformNode: slicer.vtkMRMLLinearTransformNode,
-    ) -> vtk.vtkMatrix4x4:
-        """Utility function for converting a transform between the dicom centered and
-        world centered coordinate systems."""
-        origin2DicomTransformMatrix = vtk.vtkMatrix4x4()
-        origin2DicomTransformNode.GetMatrixTransformToParent(origin2DicomTransformMatrix)
-
-        vtk.vtkMatrix4x4.Multiply4x4(origin2DicomTransformMatrix, transform, transform)
-
-        return transform
 
     @staticmethod
     def applyPVol2AutTransform(
