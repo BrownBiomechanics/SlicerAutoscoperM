@@ -83,13 +83,14 @@ class Hierarchical3DRegistrationParameterNode:
     runSatus: # TODO: running (in progress), not running, aborting
     """
 
-    # UI input parameters
+    # UI fields
     hierarchyRootID: int
     volumeSequence: vtkMRMLSequenceNode
     startFrame: int
     endFrame: int
     trackOnlyRoot: bool
     skipManualTfmAdjustments: bool
+    statusMsg: str
 
     # Registration parameters
     currentFrame: int
@@ -259,7 +260,7 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
 
     def onInitializeButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            self.ui.registrationStatusLabel.text = "Initializing registration process"
+            self._parameterNode.statusMsg = "Initializing registration process"
             if self._parameterNode.runSatus != Hierarchical3DRegistrationRunStatus.NOT_RUNNING:
                 raise ValueError("Cannot initialize registration process, as one is already ongoing!")
 
@@ -281,16 +282,17 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
             self._parameterNode.currentFrame = self._parameterNode.startFrame
             self.bonesToTrack = [self.rootBone]
 
-            if self._parameterNode.skipManualTfmAdjustments:
+            """if self._parameterNode.skipManualTfmAdjustments:
                 self._parameterNode.runSatus = Hierarchical3DRegistrationRunStatus.IN_PROGRESS
                 self.updateRegistrationButtonsState()
-            else:
-                nextBone = self.rootBone
-                initial_tfm = nextBone.getTransform(self._parameterNode.currentFrame)
-                nextBone.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
-                # TODO: add tfm interaction object here
-                self.ui.registrationStatusLabel.text = "Adjust the initial guess transform for the bone " \
-                                                  f"'{nextBone.name}' in frame {self._parameterNode.currentFrame}"
+            else:"""
+            nextBone = self.rootBone
+            initial_tfm = nextBone.getTransform(self._parameterNode.currentFrame)
+            nextBone.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
+            nextBone.startInteraction(self._parameterNode.currentFrame)
+            self._parameterNode.statusMsg = "Adjust the initial guess transform for the bone " \
+                                                f"'{nextBone.name}' in frame {self._parameterNode.currentFrame}"
+            slicer.app.processEvents()
 
     def onRegisterButton(self):
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
@@ -306,19 +308,23 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
             self.currentBone = self.bonesToTrack.pop(0)
             self._parameterNode.currentBoneID = -1  # TOOD: want this meaningfully saved to scene and re-imported later
 
+            self.currentBone.stopInteraction(self._parameterNode.currentFrame)
+
             source_frame = self._parameterNode.currentFrame
             target_frame = self._parameterNode.currentFrame + 1
+
+            slicer.util.forceRenderAllViews()
 
             if self._parameterNode.runSatus == Hierarchical3DRegistrationRunStatus.INITIALIZING:
                 assert source_frame == self._parameterNode.startFrame
 
-                self.ui.registrationStatusLabel.text = f"Setting up bone '{self.currentBone.name}' in initial frame"
+                self._parameterNode.statusMsg = f"Setting up bone '{self.currentBone.name}' in initial frame"
                 # TODO: remove transform interaction here
                 source_volume = AutoscoperMLogic.getItemInSequence(self._parameterNode.volumeSequence, source_frame)[0]
                 self.currentBone.setupFrame(source_frame, source_volume)
                 # ^^^ if self._parameterNode.skipManualTfmAdjustments: ???
             else:
-                self.ui.registrationStatusLabel.text = f"Registering bone '{self.currentBone.name}' in frame {target_frame}"
+                self._parameterNode.statusMsg = f"Registering bone '{self.currentBone.name}' in frame {target_frame}"
                 target_volume = AutoscoperMLogic.getItemInSequence(self._parameterNode.volumeSequence, target_frame)[0]
 
                 self.currentBone.setupFrame(target_frame, target_volume)
@@ -346,6 +352,9 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
                     # we just finished registering all the bones in the current
                     # frame, so now we move on to the next frame
                     self._parameterNode.currentFrame += 1
+
+                self.rootBone.setModelsVisibility(False)
+                slicer.app.processEvents()
                 self.bonesToTrack = [self.rootBone]
 
         if self._parameterNode.currentFrame == self._parameterNode.endFrame:
@@ -362,13 +371,14 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
                 initial_tfm = nextBone.getTransform(nextFrame)
                 nextBone.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
                 # TODO: add tfm interaction object here
-            self.ui.registrationStatusLabel.text = "Adjust the initial guess transform for the bone " \
+            self._parameterNode.statusMsg = "Adjust the initial guess transform for the bone " \
                                                   f"'{nextBone.name}' in frame {nextFrame}"
 
             # advance frame in sequence browser to visualize next frame
             browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(self._parameterNode.volumeSequence)
             browserNode.SetSelectedItemNumber(nextFrame)
-            # TODO add tfm interaction here!
+            nextBone.startInteraction(nextFrame)
+            slicer.app.processEvents()
 
     def onAbortButton(self):
         self._parameterNode.runSatus = Hierarchical3DRegistrationRunStatus.CANCELING
@@ -377,13 +387,15 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
 
     def cleanupRegistrationProcess(self):
         # reset current parameters, effectively wiping index of current progress
+        if self.rootBone:
+            self.rootBone.setModelsVisibility(True)
         self.setParameterNode(None)
         self.initializeParameterNode()
         self.rootBone = None
         self.currentBone = None
         self.bonesToTrack = None
 
-        self.ui.registrationStatusLabel.text = ""
+        self._parameterNode.statusMsg = ""
         self._parameterNode.runSatus = Hierarchical3DRegistrationRunStatus.NOT_RUNNING
         self.updateRegistrationButtonsState()
 

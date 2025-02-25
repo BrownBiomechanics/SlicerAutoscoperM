@@ -32,6 +32,10 @@ class TreeNode:
         self.name = self.shNode.GetItemName(self.hierarchyID)
         self.model = self.shNode.GetItemDataNode(self.hierarchyID)
 
+        # hide from user, this will be turned visible only once it's being registered
+        self.model.CreateDefaultDisplayNodes()
+        self.model.SetDisplayVisibility(False)
+
         if self.model.GetClassName() != "vtkMRMLModelNode":
             raise ValueError(f"Hierarchy item '{self.name}' is not a model!")
 
@@ -47,26 +51,13 @@ class TreeNode:
 
     def _generateRoiFromModel(self) -> slicer.vtkMRMLMarkupsROINode:
         """Creates a region of interest node from this TreeNode's model."""
-        mBounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        self.model.GetBounds(mBounds)
-
-        import numpy as np
-
-        # construct min and max coordinates of bounding box
-        bb_min = np.array([mBounds[0], mBounds[2], mBounds[4]])
-        bb_max = np.array([mBounds[1], mBounds[3], mBounds[5]])
-
-        bb_center = (bb_min + bb_max) / 2
-        bb_size = bb_min - bb_max
 
         # Create ROI node
+        bb_center, bb_size = AutoscoperMLogic.getModelBoundingBox(self.model)
         modelROI = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
-        modelROI.SetCenter(bb_center.tolist())
-        modelROI.SetSize(bb_size.tolist())
+        modelROI.SetCenter(bb_center)
+        modelROI.SetSize(bb_size)
         modelROI.SetDisplayVisibility(0)
-        # modelROI.CreateDefaultDisplayNodes()  # only needed for display, TODO: hide
-        # modelROI.SetAttribute("Markups.MovingInSliceView", "");
-        # modelROI.SetAttribute("Markups.MovingMarkupIndex", "");
         modelROI.SetName(f"{self.name}_roi")
 
         return modelROI
@@ -107,6 +98,34 @@ class TreeNode:
         """Creates a new (but empty) volume sequence in the same browser as the CT sequence."""
 
         return AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_cropped_CT_sequence", ctSequence)
+
+    def startInteraction(self, frameIdx) -> None:
+        """Enable model visibility and transform interaction for this bone in the current frame"""
+        self.model.SetDisplayVisibility(True)
+        model_display = self.model.GetDisplayNode()
+        model_display.SetVisibility2D(True)
+        model_display.SetVisibility3D(True)
+
+        model_center, _ = AutoscoperMLogic.getModelBoundingBox(self.model)
+
+        tfm = self.getTransform(frameIdx)
+        tfm.SetCenterOfTransformation(model_center)
+        tfm.CreateDefaultDisplayNodes()
+        tfm_display = tfm.GetDisplayNode()
+        tfm_display.SetEditorVisibility(True)
+        tfm_display.SetEditorVisibility3D(True)
+
+        slicer.app.processEvents()
+
+    def stopInteraction(self, frameIdx) -> None:
+        """Disable transform interaction for this bone in the current frame"""
+        tfm = self.getTransform(frameIdx)
+        tfm.CreateDefaultDisplayNodes()
+        tfm_display = tfm.GetDisplayNode()
+        tfm_display.SetEditorVisibility(False)
+        tfm_display.SetEditorVisibility3D(False)
+
+        slicer.app.processEvents()
 
     def setupFrame(self, frameIdx, ctFrame) -> None:
         """
@@ -208,6 +227,12 @@ class TreeNode:
             nextTransform.SetMatrixTransformToParent(transformMatrix)
         else:
             logging.error(f"DEBUGGING copyTransformToNextFrame: nextTransform is None at nextIdx={nextIdx}")
+
+    def setModelsVisibility(self, visibility: bool) -> None:
+        """Sets the visibility of the model node of this node and all nodes below it"""
+        self.model.SetDisplayVisibility(visibility)
+        for childNode in self.childNodes:
+            childNode.setModelsVisibility(visibility)
 
     def exportTransformsAsTRAFile(self, exportDir: str):  # TODO: revisit for export
         """Exports the sequence as a TRA file for reading into Autoscoper."""

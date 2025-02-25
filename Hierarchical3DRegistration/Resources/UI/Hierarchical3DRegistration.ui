@@ -206,6 +206,9 @@
         <property name="text">
          <string/>
         </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>statusMsg</string>
+        </property>
         <property name="styleSheet">
          <string notr="true">color: blue;</string>
         </property>

@@ -1290,3 +1290,22 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         dicom2autNode.SetMatrixTransformToParent(dicom2aut)
         slicer.mrmlScene.AddNode(dicom2autNode)
         return dicom2autNode
+
+    @staticmethod
+    def getModelBoundingBox(
+        model: slicer.vtkMRMLModelNode
+    ) -> list[float]:
+        """Utility function to return the center and size of model node"""
+        model_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        model.GetBounds(model_bounds)
+
+        import numpy as np
+
+        # construct min and max coordinates of bounding box
+        bb_min = np.array([model_bounds[0], model_bounds[2], model_bounds[4]])
+        bb_max = np.array([model_bounds[1], model_bounds[3], model_bounds[5]])
+
+        bb_center = (bb_min + bb_max) / 2
+        bb_size = bb_min - bb_max
+
+        return bb_center.tolist(), bb_size.tolist()
