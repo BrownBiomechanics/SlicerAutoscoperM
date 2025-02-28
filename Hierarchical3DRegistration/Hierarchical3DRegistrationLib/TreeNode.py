@@ -68,6 +68,7 @@ class TreeNode:
 
         newSequenceNode = AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_transform_sequence", ctSequence)
         identityTfm = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLinearTransformNode")
+        identityTfm.UnRegister(None)  # release extra reference of ojbect to avoid memory leak message
 
         # batch the processing event for the addition of the transforms, for speedup
         slicer.mrmlScene.StartState(slicer.vtkMRMLScene.BatchProcessState)
@@ -127,16 +128,50 @@ class TreeNode:
 
         slicer.app.processEvents()
 
-    def setupFrame(self, frameIdx, ctFrame) -> None:
+    def setupFrame(self, frameIdx, ctFrame) -> slicer.vtkMRMLLinearTransformNode:
         """
         Return a cropped volume from the given CT frame based on the initial guess
         transform for the given frame and this model's ROI.
         """
-        initial_tfm = self.getTransform(frameIdx)  # for the root node, this will just be the identity
+        current_tfm = self.getTransform(frameIdx)  # for the root node, this will just be the identity
         # generate cropped volume from the given frame
-        self.model.SetAndObserveTransformNodeID(initial_tfm.GetID())
-        self.roi.SetAndObserveTransformNodeID(initial_tfm.GetID())
+        self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
+        self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.cropFrameFromRoi(frameIdx, ctFrame)
+
+        prev_idx = frameIdx - 1
+        if prev_idx < 0: # TODO more robust index check here
+            inverse_tfm_orig_to_prev = vtk.vtkMatrix4x4()  # Identity matrix
+        else:
+            prev_tfm = self.getTransform(prev_idx)
+            inverse_tfm_orig_to_prev = vtk.vtkMatrix4x4()
+            prev_tfm.GetMatrixTransformToParent(inverse_tfm_orig_to_prev)
+            inverse_tfm_orig_to_prev.Invert()
+
+        current_tfm = self.getTransform(frameIdx)
+        tfm_orig_to_current = vtk.vtkMatrix4x4()
+        current_tfm.GetMatrixTransformToParent(tfm_orig_to_current)
+
+        elastix_tfm = vtk.vtkMatrix4x4()
+        vtk.vtkMatrix4x4.Multiply4x4(tfm_orig_to_current, inverse_tfm_orig_to_prev, elastix_tfm)
+        combinedTransformNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLinearTransformNode')
+        combinedTransformNode.SetMatrixTransformToParent(elastix_tfm)
+        combinedTransformNode.SetName(f"{self.name}_{prev_idx}_to_{frameIdx}_tfm")
+
+        return combinedTransformNode
+
+    def saveRegistrationTransform(self, frame_idx, result_tfm) -> None:
+        prev_tfm = self.getTransform(frame_idx-1)
+        tfm_orig_to_prev = vtk.vtkMatrix4x4()
+        prev_tfm.GetMatrixTransformToParent(tfm_orig_to_prev)
+
+        tfm_elastix = vtk.vtkMatrix4x4()
+        result_tfm.GetMatrixTransformToParent(tfm_elastix)
+
+        tfm_orig_to_curr = vtk.vtkMatrix4x4()
+        vtk.vtkMatrix4x4.Multiply4x4(tfm_elastix, tfm_orig_to_prev, tfm_orig_to_curr)
+
+        self.setTransformFromMatrix(tfm_orig_to_curr, frame_idx)
 
     def cropFrameFromRoi(self, frame_idx, targetFrame) -> None:
         """

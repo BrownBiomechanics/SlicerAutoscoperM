@@ -3,7 +3,7 @@ from typing import Optional
 
 import slicer
 import vtk
-from slicer import vtkMRMLScalarVolumeNode, vtkMRMLSequenceNode, vtkMRMLTransformNode
+from slicer import vtkMRMLScalarVolumeNode, vtkMRMLSequenceNode, vtkMRMLLinearTransformNode
 from slicer.i18n import tr as _
 from slicer.parameterNodeWrapper import parameterNodeWrapper
 from slicer.ScriptedLoadableModule import (
@@ -327,10 +327,11 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
                 self._parameterNode.statusMsg = f"Registering bone '{self.currentBone.name}' in frame {target_frame}"
                 target_volume = AutoscoperMLogic.getItemInSequence(self._parameterNode.volumeSequence, target_frame)[0]
 
-                self.currentBone.setupFrame(target_frame, target_volume)
+                elastix_tfm = self.currentBone.setupFrame(target_frame, target_volume)
 
                 self.logic.registerBoneInFrame(
                     self.currentBone,
+                    elastix_tfm,
                     source_frame,
                     target_frame,
                     self._parameterNode.trackOnlyRoot
@@ -386,6 +387,7 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
         self.cleanupRegistrationProcess()
 
     def cleanupRegistrationProcess(self):
+        #TODO: turn off all tfm interaction
         # reset current parameters, effectively wiping index of current progress
         if self.rootBone:
             self.rootBone.setModelsVisibility(True)
@@ -538,7 +540,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         return Hierarchical3DRegistrationParameterNode(super().getParameterNode())
 
     @staticmethod
-    def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLTransformNode:
+    def parameterObject2SlicerTransform(paramObj) -> slicer.vtkMRMLLinearTransformNode:
         from math import cos, sin
 
         import numpy as np
@@ -573,7 +575,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         self,
         sourceVolume: vtkMRMLScalarVolumeNode,
         targetVolume: vtkMRMLScalarVolumeNode,
-        transformNode: vtkMRMLTransformNode,
+        transformNode: vtkMRMLLinearTransformNode,
     ):
         """
         Registers a source volume to a target volume using ITKElastix.
@@ -638,6 +640,7 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
     def registerBoneInFrame(
         self,
         boneNode: TreeNode,
+        elastixTfm: vtkMRMLLinearTransformNode,
         source_frame: int,
         target_frame: int,
         trackOnlyRoot: bool = False,
@@ -646,7 +649,6 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         import time
 
         # get initial guess, then crop target volume
-        bone_tfm = boneNode.getTransform(target_frame)
         source_cropped_volume = boneNode.getCroppedFrame(source_frame)
         target_cropped_volume = boneNode.getCroppedFrame(target_frame)
 
@@ -655,10 +657,12 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         self.registerRigidBody(
             source_cropped_volume,
             target_cropped_volume,
-            bone_tfm,
+            elastixTfm,
         )
         end = time.time()
         logging.info(f"{boneNode.name} took {end-start} for frame {target_frame}.")
 
+        boneNode.saveRegistrationTransform(target_frame, elastixTfm)
+
         if not trackOnlyRoot:
-            boneNode.applyTransformToChildren(target_frame, bone_tfm)
+            boneNode.applyTransformToChildren(target_frame, elastixTfm)
