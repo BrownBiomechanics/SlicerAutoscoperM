@@ -110,7 +110,7 @@ def registerAutoscoperSampleData(dataType, version, checksum):
 def sampleDataConfigFile(dataType):
     """Return the trial config filename."""
     return {
-        "2025-01-12-Wrist": "2023-07-20-Wrist.cfg",
+        "2025-02-19-Wrist": "Wrist_Sample_Data.cfg",
         "2025-02-10-Knee": "Knee_Sample_Data.cfg",
         "2025-01-12-Ankle": "2023-07-20-Ankle.cfg",
     }.get(dataType)
@@ -121,7 +121,7 @@ def registerSampleData():
     Add data sets to Sample Data module.
     """
     registerAutoscoperSampleData(
-        "Wrist", "2025-01-12", checksum="SHA256:13eca7b7ddbf3111c433d10871aa5ee7328d056427cdaaf9407038a021ab8326"
+        "Wrist", "2025-02-19", checksum="SHA256:6780bf13107c730d8a07ad7ff0d9f53b250b0c910f2c2c2e94ed021a4547dc19"
     )
     registerAutoscoperSampleData(
         "Knee", "2025-02-10", checksum="SHA256:02442eafc71b7d7ac2e6d57d510fc0d3e2c775db2ea458659142316f004b6af6"
@@ -206,7 +206,7 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.autoscoperRenderingBackendComboBox.addItems(list(self.autoscoperExecutables.keys()))
 
         # Sample Data Buttons
-        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-01-12-Wrist"))
+        self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-02-19-Wrist"))
         self.ui.kneeSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-02-10-Knee"))
         self.ui.ankleSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-01-12-Ankle"))
 
