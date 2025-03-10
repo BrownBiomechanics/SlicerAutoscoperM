@@ -18,6 +18,7 @@ class TreeNode:
         self,
         hierarchyID: int,
         ctSequence: slicer.vtkMRMLSequenceNode,
+        sourceVolume: slicer.vtkMRMLScalarVolumeNode,
         parent: TreeNode | None = None,
         isRoot: bool = False,
     ):
@@ -37,16 +38,17 @@ class TreeNode:
         self.model.SetDisplayVisibility(False)
 
         if self.model.GetClassName() != "vtkMRMLModelNode":
-            raise ValueError(f"Hierarchy item '{self.name}' is not a model!")
+            raise ValueError(f"Hierarchy item '{self.name}' is not of type vtkMRMLModelNode!")
 
         self.roi = self._generateRoiFromModel()
+        self.croppedSourceVolume = self.cropFrameFromRoi(sourceVolume)
         self.transformSequence = self._initializeTransforms(ctSequence)
         self.croppedCtSequence = dict() #self._initializeCroppedCT(ctSequence)
 
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
         self.childNodes = [
-            TreeNode(hierarchyID=child_id, parent=self, ctSequence=ctSequence) for child_id in children_ids
+            TreeNode(hierarchyID=child_id, parent=self, ctSequence=ctSequence, sourceVolume=sourceVolume) for child_id in children_ids
         ]
 
     def _generateRoiFromModel(self) -> slicer.vtkMRMLMarkupsROINode:
@@ -80,20 +82,6 @@ class TreeNode:
         slicer.mrmlScene.EndState(slicer.vtkMRMLScene.BatchProcessState)
         slicer.app.processEvents()
         return newSequenceNode
-        """
-        nodes = []
-        for i in range(ctSequence.GetNumberOfDataNodes()):
-            curTfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"{self.name}-{i}")
-            newSequenceNode.SetDataNodeAtValue(curTfm, f"{i}")
-            nodes.append(curTfm)
-        [slicer.mrmlScene.RemoveNode(node) for node in nodes]
-        # Bit of a strange issue but the browser doesn't seem to update unless it moves to a new index,
-        # so we force it to update here
-        AutoscoperMLogic.getItemInSequence(newSequenceNode, 1)
-        AutoscoperMLogic.getItemInSequence(newSequenceNode, 0)
-        slicer.app.processEvents()
-        return newSequenceNode
-        """
 
     def _initializeCroppedCT(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
         """Creates a new (but empty) volume sequence in the same browser as the CT sequence."""
@@ -102,6 +90,8 @@ class TreeNode:
 
     def startInteraction(self, frameIdx) -> None:
         """Enable model visibility and transform interaction for this bone in the current frame"""
+        current_tfm = self.getTransform(frameIdx)
+        self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.model.SetDisplayVisibility(True)
         model_display = self.model.GetDisplayNode()
         model_display.SetVisibility2D(True)
@@ -128,7 +118,7 @@ class TreeNode:
 
         slicer.app.processEvents()
 
-    def setupFrame(self, frameIdx, ctFrame) -> slicer.vtkMRMLLinearTransformNode:
+    def setupFrame(self, frameIdx, ctFrame) -> None:
         """
         Return a cropped volume from the given CT frame based on the initial guess
         transform for the given frame and this model's ROI.
@@ -137,43 +127,10 @@ class TreeNode:
         # generate cropped volume from the given frame
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
-        self.cropFrameFromRoi(frameIdx, ctFrame)
+        self.croppedSourceVolume.SetAndObserveTransformNodeID(current_tfm.GetID())
+        self.cropFrameFromRoi(ctFrame, frameIdx)
 
-        prev_idx = frameIdx - 1
-        if prev_idx < 0: # TODO more robust index check here
-            inverse_tfm_orig_to_prev = vtk.vtkMatrix4x4()  # Identity matrix
-        else:
-            prev_tfm = self.getTransform(prev_idx)
-            inverse_tfm_orig_to_prev = vtk.vtkMatrix4x4()
-            prev_tfm.GetMatrixTransformToParent(inverse_tfm_orig_to_prev)
-            inverse_tfm_orig_to_prev.Invert()
-
-        current_tfm = self.getTransform(frameIdx)
-        tfm_orig_to_current = vtk.vtkMatrix4x4()
-        current_tfm.GetMatrixTransformToParent(tfm_orig_to_current)
-
-        elastix_tfm = vtk.vtkMatrix4x4()
-        vtk.vtkMatrix4x4.Multiply4x4(tfm_orig_to_current, inverse_tfm_orig_to_prev, elastix_tfm)
-        combinedTransformNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLinearTransformNode')
-        combinedTransformNode.SetMatrixTransformToParent(elastix_tfm)
-        combinedTransformNode.SetName(f"{self.name}_{prev_idx}_to_{frameIdx}_tfm")
-
-        return combinedTransformNode
-
-    def saveRegistrationTransform(self, frame_idx, result_tfm) -> None:
-        prev_tfm = self.getTransform(frame_idx-1)
-        tfm_orig_to_prev = vtk.vtkMatrix4x4()
-        prev_tfm.GetMatrixTransformToParent(tfm_orig_to_prev)
-
-        tfm_elastix = vtk.vtkMatrix4x4()
-        result_tfm.GetMatrixTransformToParent(tfm_elastix)
-
-        tfm_orig_to_curr = vtk.vtkMatrix4x4()
-        vtk.vtkMatrix4x4.Multiply4x4(tfm_elastix, tfm_orig_to_prev, tfm_orig_to_curr)
-
-        self.setTransformFromMatrix(tfm_orig_to_curr, frame_idx)
-
-    def cropFrameFromRoi(self, frame_idx, targetFrame) -> None:
+    def cropFrameFromRoi(self, targetFrame, frame_idx=None) -> None:
         """
         Returns a cropped volume from the given target volume, based its
         corresponding initial guess transform and this model's ROI.
@@ -200,9 +157,13 @@ class TreeNode:
         outputVolumeNodeID = cvpn.GetOutputVolumeNodeID()
         outputVolumeNode = slicer.mrmlScene.GetNodeByID(outputVolumeNodeID)
 
-        outputVolumeNode.SetName(f"{targetFrame.GetName()}_{frame_idx}_{self.name}_cropped")
-        #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
-        self.croppedCtSequence[frame_idx] = outputVolumeNode
+        if frame_idx != None:
+            outputVolumeNode.SetName(f"{targetFrame.GetName()}_frame-{frame_idx}_{self.name}_cropped")
+            #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
+            self.croppedCtSequence[frame_idx] = outputVolumeNode
+        else:
+            outputVolumeNode.SetName(f"{targetFrame.GetName()}_{self.name}_cropped")
+
         # TODO: remove new node from scene (we want it visible just inside the sequence...)?
 
         return outputVolumeNode
@@ -220,7 +181,7 @@ class TreeNode:
             return None
         return self.croppedCtSequence.GetNthDataNode(idx)"""
         if idx not in self.croppedCtSequence:
-            logging.warning(f"Provided index {idx} not found in the sequence od cropped volumes.")
+            logging.warning(f"Provided index {idx} not found in the sequence of cropped volumes.")
             return None
         return self.croppedCtSequence[idx]
 
