@@ -12,6 +12,38 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QProgressBar" name="progressBar">
+     <property name="value">
+      <number>0</number>
+     </property>
+     <property name="invertedAppearance">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="registrationStatusLabel">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="SlicerParameterName" stdset="0">
+      <string>statusMsg</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: palette(link);</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
       <string>Registration</string>
@@ -232,25 +264,6 @@
          </widget>
         </item>
        </layout>
-      </item>
-      <item row="6" column="0" colspan="6">
-       <widget class="QLabel" name="registrationStatusLabel">
-        <property name="font">
-         <font>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>statusMsg</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">color: blue;</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </widget>
