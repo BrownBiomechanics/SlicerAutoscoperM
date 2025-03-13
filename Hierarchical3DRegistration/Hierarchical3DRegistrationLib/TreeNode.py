@@ -41,7 +41,9 @@ class TreeNode:
             raise ValueError(f"Hierarchy item '{self.name}' is not of type vtkMRMLModelNode!")
 
         self.roi = self._generateRoiFromModel()
-        self.croppedSourceVolume = self.cropFrameFromRoi(sourceVolume)
+        self.sourceVolume = sourceVolume
+        self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(sourceVolume, self.roi) # TODO: hide from scene?
+        self.croppedSourceVolume.SetName(f"{sourceVolume.GetName()}_{self.name}_cropped")
         self.transformSequence = self._initializeTransforms(ctSequence)
         self.croppedCtSequence = dict() #self._initializeCroppedCT(ctSequence)
 
@@ -123,50 +125,29 @@ class TreeNode:
         Return a cropped volume from the given CT frame based on the initial guess
         transform for the given frame and this model's ROI.
         """
-        current_tfm = self.getTransform(frameIdx)  # for the root node, this will just be the identity
+        # first check if the roi bounds exceed the CT frame target volume
+        new_roi_dims = AutoscoperMLogic.checkROIBoundsExceeding(self.roi, ctFrame)
+        if None not in new_roi_dims:
+            # update roi to dimension of the intersection
+            new_roi_center, new_roi_size = new_roi_dims
+            self.roi.SetCenter(new_roi_center)
+            self.roi.SetSize(new_roi_size)
+            # replace the cropped source volume with that from the new roi
+            slicer.mrmlScene.RemoveNode(self.croppedSourceVolume)
+            self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, self.roi) # TODO: hide from scene?
+            self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped")
+
         # generate cropped volume from the given frame
+        current_tfm = self.getTransform(frameIdx)
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.croppedSourceVolume.SetAndObserveTransformNodeID(current_tfm.GetID())
-        self.cropFrameFromRoi(ctFrame, frameIdx)
+        croppedFrame = AutoscoperMLogic.cropVolumeFromROI(ctFrame, self.roi) # TODO: hide from scene?
+        croppedFrame.SetName(f"{ctFrame.GetName()}_frame-{frameIdx}_{self.name}_cropped")
 
-    def cropFrameFromRoi(self, targetFrame, frame_idx=None) -> None:
-        """
-        Returns a cropped volume from the given target volume, based its
-        corresponding initial guess transform and this model's ROI.
+        #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
+        self.croppedCtSequence[frameIdx] = croppedFrame
 
-        :param frame_idx: the frame index corresponding to the target frame
-        :param targetFrame: the target volume to be cropped from the ROI
-
-        :return: the output cropped volume node
-        """
-        # create volume node for the output of the cropping, and add it to the sequence
-        #outputVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
-
-        # initialize croppping configuration
-        cvpn = slicer.vtkMRMLCropVolumeParametersNode()
-        cvpn.SetROINodeID(self.roi.GetID())
-        cvpn.SetInputVolumeNodeID(targetFrame.GetID())
-        #cvpn.SetOutputVolumeNodeID(outputVolumeNode.GetID())
-        cvpn.SetVoxelBased(True)
-
-        # apply the cropping
-        cropLogic = slicer.modules.cropvolume.logic()
-        cropLogic.Apply(cvpn)
-
-        outputVolumeNodeID = cvpn.GetOutputVolumeNodeID()
-        outputVolumeNode = slicer.mrmlScene.GetNodeByID(outputVolumeNodeID)
-
-        if frame_idx != None:
-            outputVolumeNode.SetName(f"{targetFrame.GetName()}_frame-{frame_idx}_{self.name}_cropped")
-            #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
-            self.croppedCtSequence[frame_idx] = outputVolumeNode
-        else:
-            outputVolumeNode.SetName(f"{targetFrame.GetName()}_{self.name}_cropped")
-
-        # TODO: remove new node from scene (we want it visible just inside the sequence...)?
-
-        return outputVolumeNode
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""

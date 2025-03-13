@@ -1309,3 +1309,64 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         bb_size = bb_min - bb_max
 
         return bb_center.tolist(), bb_size.tolist()
+
+    @staticmethod
+    def checkROIBoundsExceeding(
+        roiNode: slicer.vtkMRMLMarkupsROINode,
+        volumeNode: slicer.vtkMRMLScalarVolumeNode,
+    ) -> Optional[list[float]]:
+        """Utility function to check if the bounds of the ROI exceed those of
+        the target volume, and if so compute the bounds of their intersection"""
+        roi_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vol_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        roiNode.GetBounds(roi_bounds)
+        volumeNode.GetBounds(vol_bounds)
+
+        # to find intersection of bbs, take the max of the mins and the min of the maxs
+        import numpy as np
+        bb_min = np.array([
+            max(roi_bounds[0], vol_bounds[0]),
+            max(roi_bounds[2], vol_bounds[2]),
+            max(roi_bounds[4], vol_bounds[4])
+        ])
+        bb_max = np.array([
+            min(roi_bounds[1], vol_bounds[1]),
+            min(roi_bounds[3], vol_bounds[3]),
+            min(roi_bounds[5], vol_bounds[5])
+        ])
+
+        # check if the bounds of the intersection are different than the original ROI
+        bb_bounds = np.ravel([bb_min, bb_max], 'F')
+        if np.any(np.abs(bb_bounds - np.array(roi_bounds))):
+            # ROI bounds need trimming, so return the new bounds
+            bb_center = (bb_min + bb_max) / 2
+            bb_size = bb_min - bb_max
+            return bb_center.tolist(), bb_size.tolist()
+
+        return None, None
+
+    @staticmethod
+    def cropVolumeFromROI(
+        inputVolumeNode: slicer.vtkMRMLScalarVolumeNode,
+        roiNode: slicer.vtkMRMLMarkupsROINode,
+        outputVolumeNode: slicer.vtkMRMLScalarVolumeNode = None,
+    ) -> slicer.vtkMRMLScalarVolumeNode:
+        """Utility function to return a cropped copy of a volume from given ROI bounds"""
+        # set up cropping parameters
+        cvpn = slicer.vtkMRMLCropVolumeParametersNode()
+        cvpn.SetROINodeID(roiNode.GetID())
+        cvpn.SetInputVolumeNodeID(inputVolumeNode.GetID())
+        cvpn.SetVoxelBased(True)
+        if outputVolumeNode != None:
+            cvpn.SetOutputVolumeNodeID(outputVolumeNode.GetID())
+
+        # apply the cropping
+        cropLogic = slicer.modules.cropvolume.logic()
+        cropLogic.Apply(cvpn)
+
+        if outputVolumeNode != None:
+            return outputVolumeNode
+        else:
+            outputVolumeNodeID = cvpn.GetOutputVolumeNodeID()
+            outputVolumeNode = slicer.mrmlScene.GetNodeByID(outputVolumeNodeID)
+            return outputVolumeNode
