@@ -1292,9 +1292,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         return dicom2autNode
 
     @staticmethod
-    def getModelBoundingBox(
-        model: slicer.vtkMRMLModelNode
-    ) -> list[float]:
+    def getModelBoundingBox(model: slicer.vtkMRMLModelNode) -> list[float]:
         """Utility function to return the center and size of model node"""
         model_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         model.GetBounds(model_bounds)
@@ -1357,16 +1355,15 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         cvpn.SetROINodeID(roiNode.GetID())
         cvpn.SetInputVolumeNodeID(inputVolumeNode.GetID())
         cvpn.SetVoxelBased(True)
-        if outputVolumeNode != None:
+        if outputVolumeNode is not None:
             cvpn.SetOutputVolumeNodeID(outputVolumeNode.GetID())
 
         # apply the cropping
         cropLogic = slicer.modules.cropvolume.logic()
         cropLogic.Apply(cvpn)
 
-        if outputVolumeNode != None:
+        if outputVolumeNode is not None:
             return outputVolumeNode
-        else:
-            outputVolumeNodeID = cvpn.GetOutputVolumeNodeID()
-            outputVolumeNode = slicer.mrmlScene.GetNodeByID(outputVolumeNodeID)
-            return outputVolumeNode
+
+        outputVolumeNodeID = cvpn.GetOutputVolumeNodeID()
+        return slicer.mrmlScene.GetNodeByID(outputVolumeNodeID)

@@ -166,7 +166,7 @@
          <number>0</number>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>startFrame</string>
+         <string>startFrameIdx</string>
         </property>
        </widget>
       </item>
@@ -198,7 +198,7 @@
          <number>0</number>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>endFrame</string>
+         <string>endFrameIdx</string>
         </property>
        </widget>
       </item>

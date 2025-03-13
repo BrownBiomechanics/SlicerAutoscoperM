@@ -11,7 +11,9 @@ from AutoscoperM import IO, AutoscoperMLogic
 
 class TreeNode:
     """
-    Data structure to store a basic tree hierarchy.
+    Data structure to store a basic tree hierarchy along with data needed for registration.
+    Each TreeNode represents a bone in the hierarchy and keeps track of its respective
+    moving and fixed images for registration as well as the registration result transforms.
     """
 
     def __init__(
@@ -22,6 +24,15 @@ class TreeNode:
         parent: TreeNode | None = None,
         isRoot: bool = False,
     ):
+        """
+        Create a new TreeNode with the given parent.
+
+        :param hierarchyID: this node's subject hierarchy ID
+        :param ctSequence: the entire volume sequence (target) to be registered
+        :param sourceVolume: the scalar volume to register from (from which this node's model was generated)
+        :param parent: reference to the parent node
+        :param isRoot: whether this node it the root of the hierarchy
+        """
         self.hierarchyID = hierarchyID
         self.isRoot = isRoot
         self.parent = parent
@@ -33,20 +44,22 @@ class TreeNode:
         self.name = self.shNode.GetItemName(self.hierarchyID)
         self.model = self.shNode.GetItemDataNode(self.hierarchyID)
 
-        # hide from user, this will be turned visible only once it's being registered
-        self.model.CreateDefaultDisplayNodes()
-        self.model.SetDisplayVisibility(False)
-
         if self.model.GetClassName() != "vtkMRMLModelNode":
             raise ValueError(f"Hierarchy item '{self.name}' is not of type vtkMRMLModelNode!")
 
+        # disable model rendering, it will be turned visible once this bone is registered
+        self.model.CreateDefaultDisplayNodes()
+        self.model.SetDisplayVisibility(False)
+
+        # initialize registration inputs and outputs for this node
         self.roi = self._generateRoiFromModel()
         self.sourceVolume = sourceVolume
         self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(sourceVolume, self.roi) # TODO: hide from scene?
         self.croppedSourceVolume.SetName(f"{sourceVolume.GetName()}_{self.name}_cropped")
         self.transformSequence = self._initializeTransforms(ctSequence)
-        self.croppedCtSequence = dict() #self._initializeCroppedCT(ctSequence)
+        self.croppedCtSequence = self._initializeCroppedCT(ctSequence)
 
+        # recursively create any child nodes from the subject hierarchy
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
         self.childNodes = [
@@ -68,13 +81,12 @@ class TreeNode:
 
     def _initializeTransforms(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
         """Creates a new transform sequence in the same browser as the CT sequence."""
-        # TODO: make sure output transforms start at the appropriate if startIdx != 0.
 
         newSequenceNode = AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_transform_sequence", ctSequence)
         identityTfm = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLinearTransformNode")
-        identityTfm.UnRegister(None)  # release extra reference of ojbect to avoid memory leak message
+        identityTfm.UnRegister(None)  # release extra reference of object to avoid memory leak message
 
-        # batch the processing event for the addition of the transforms, for speedup
+        # batch the processing event for the addition of the new transform nodes, for speedup
         slicer.mrmlScene.StartState(slicer.vtkMRMLScene.BatchProcessState)
 
         for i in range(ctSequence.GetNumberOfDataNodes()):
@@ -85,10 +97,11 @@ class TreeNode:
         slicer.app.processEvents()
         return newSequenceNode
 
-    def _initializeCroppedCT(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
+    def _initializeCroppedCT(self, ctSequence) -> dict: #slicer.vtkMRMLSequenceNode:
         """Creates a new (but empty) volume sequence in the same browser as the CT sequence."""
-
-        return AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_cropped_CT_sequence", ctSequence)
+        # TODO: store cropped frames in sequence
+        #return AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_cropped_CT_sequence", ctSequence)
+        return dict()
 
     def startInteraction(self, frameIdx) -> None:
         """Enable model visibility and transform interaction for this bone in the current frame"""
@@ -122,8 +135,7 @@ class TreeNode:
 
     def setupFrame(self, frameIdx, ctFrame) -> None:
         """
-        Return a cropped volume from the given CT frame based on the initial guess
-        transform for the given frame and this model's ROI.
+        Crop the target CT frame based on the initial guess transform and this node's ROI.
         """
         # first check if the roi bounds exceed the CT frame target volume
         new_roi_dims = AutoscoperMLogic.checkROIBoundsExceeding(self.roi, ctFrame)
@@ -148,7 +160,6 @@ class TreeNode:
         #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
         self.croppedCtSequence[frameIdx] = croppedFrame
 
-
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
         if idx >= self.transformSequence.GetNumberOfDataNodes():
@@ -157,6 +168,7 @@ class TreeNode:
         return AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
 
     def getCroppedFrame(self, idx: int) -> slicer.vtkMRMLScalarVolumeNode:
+        # TODO: store cropped frames in sequence
         """if idx >= self.croppedCtSequence.GetNumberOfDataNodes():
             logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
             return None
@@ -168,23 +180,21 @@ class TreeNode:
 
     def _applyTransform(self, idx: int, transform: slicer.vtkMRMLTransformNode) -> None:
         """Applies and hardends a transform node to the transform sequence at the provided index."""
-        if idx >= self.transformSequence.GetNumberOfDataNodes():
-            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+        current_transform = self.getTransform(idx)
+        if current_transform is None:
             return
-        current_transform = AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
-        current_transform.SetAndObserveTransformNodeID(transform.GetID()) # TODO: fails for parent! parent transform cannot be self or a child transform
+        current_transform.SetAndObserveTransformNodeID(transform.GetID())
         current_transform.HardenTransform()
 
     def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:  # TODO: revisit for import
         """TODO description"""
-        if idx >= self.transformSequence.GetNumberOfDataNodes():
-            logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
+        current_transform = self.getTransform(idx)
+        if current_transform is None:
             return
-        current_transform = AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
         current_transform.SetMatrixTransformToParent(transform)
 
     def applyTransformToChildren(self, idx: int, transform: slicer.vtkMRMLLinearTransformNode) -> None:
-        """Applies the transform at the provided index to this node and all its children."""
+        """Applies the transform at the provided index to all children of this node."""
         for childNode in self.childNodes:
             childNode._applyTransform(idx, transform)
             # recurse down all child nodes and apply it to them as well
@@ -202,11 +212,9 @@ class TreeNode:
         nextTransform = self.getTransform(nextIdx)
         if nextTransform is not None:
             nextTransform.SetMatrixTransformToParent(transformMatrix)
-        else:
-            logging.error(f"DEBUGGING copyTransformToNextFrame: nextTransform is None at nextIdx={nextIdx}")
 
     def setModelsVisibility(self, visibility: bool) -> None:
-        """Sets the visibility of the model node of this node and all nodes below it"""
+        """Sets the visibility of the model node of this node and all its child nodes"""
         self.model.SetDisplayVisibility(visibility)
         for childNode in self.childNodes:
             childNode.setModelsVisibility(visibility)
