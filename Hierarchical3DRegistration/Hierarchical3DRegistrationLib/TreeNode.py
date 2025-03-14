@@ -54,8 +54,8 @@ class TreeNode:
         # initialize registration inputs and outputs for this node
         self.roi = self._generateRoiFromModel()
         self.sourceVolume = sourceVolume
-        self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(sourceVolume, self.roi) # TODO: hide from scene?
-        self.croppedSourceVolume.SetName(f"{sourceVolume.GetName()}_{self.name}_cropped")
+        self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(sourceVolume, self.roi)
+        self.croppedSourceVolume.SetName(f"{sourceVolume.GetName()}_{self.name}_cropped_source")
         self.transformSequence = self._initializeTransforms(ctSequence)
         self.croppedCtSequence = self._initializeCroppedCT(ctSequence)
 
@@ -63,7 +63,8 @@ class TreeNode:
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
         self.childNodes = [
-            TreeNode(hierarchyID=child_id, parent=self, ctSequence=ctSequence, sourceVolume=sourceVolume) for child_id in children_ids
+            TreeNode(hierarchyID=child_id, parent=self, ctSequence=ctSequence, sourceVolume=sourceVolume)
+            for child_id in children_ids
         ]
 
     def _generateRoiFromModel(self) -> slicer.vtkMRMLMarkupsROINode:
@@ -97,11 +98,24 @@ class TreeNode:
         slicer.app.processEvents()
         return newSequenceNode
 
-    def _initializeCroppedCT(self, ctSequence) -> dict: #slicer.vtkMRMLSequenceNode:
+    def _initializeCroppedCT(self, ctSequence) -> slicer.vtkMRMLSequenceNode:
         """Creates a new (but empty) volume sequence in the same browser as the CT sequence."""
-        # TODO: store cropped frames in sequence
-        #return AutoscoperMLogic.createSequenceNodeInBrowser(f"{self.name}_cropped_CT_sequence", ctSequence)
-        return dict()
+        newSequenceNode = AutoscoperMLogic.createSequenceNodeInBrowser(
+            f"{self.name}_cropped_volume_sequence", ctSequence
+        )
+        emptyVolume = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+        emptyVolume.UnRegister(None)  # release extra reference of object to avoid memory leak message
+
+        # batch the processing event for the addition of the new transform nodes, for speedup
+        slicer.mrmlScene.StartState(slicer.vtkMRMLScene.BatchProcessState)
+
+        for i in range(ctSequence.GetNumberOfDataNodes()):
+            idxValue = ctSequence.GetNthIndexValue(i)
+            newSequenceNode.SetDataNodeAtValue(emptyVolume, idxValue)
+
+        slicer.mrmlScene.EndState(slicer.vtkMRMLScene.BatchProcessState)
+        slicer.app.processEvents()
+        return newSequenceNode
 
     def startInteraction(self, frameIdx) -> None:
         """Enable model visibility and transform interaction for this bone in the current frame"""
@@ -125,6 +139,11 @@ class TreeNode:
 
     def stopInteraction(self, frameIdx) -> None:
         """Disable transform interaction for this bone in the current frame"""
+        self.model.SetDisplayVisibility(True)
+        model_display = self.model.GetDisplayNode()
+        model_display.SetVisibility2D(True)
+        model_display.SetVisibility3D(True)
+
         tfm = self.getTransform(frameIdx)
         tfm.CreateDefaultDisplayNodes()
         tfm_display = tfm.GetDisplayNode()
@@ -146,7 +165,7 @@ class TreeNode:
             self.roi.SetSize(new_roi_size)
             # replace the cropped source volume with that from the new roi
             slicer.mrmlScene.RemoveNode(self.croppedSourceVolume)
-            self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, self.roi) # TODO: hide from scene?
+            self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, self.roi)
             self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped")
 
         # generate cropped volume from the given frame
@@ -154,11 +173,8 @@ class TreeNode:
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.croppedSourceVolume.SetAndObserveTransformNodeID(current_tfm.GetID())
-        croppedFrame = AutoscoperMLogic.cropVolumeFromROI(ctFrame, self.roi) # TODO: hide from scene?
-        croppedFrame.SetName(f"{ctFrame.GetName()}_frame-{frameIdx}_{self.name}_cropped")
-
-        #self.croppedCtSequence.SetDataNodeAtValue(outputVolumeNode, str(frame_idx))
-        self.croppedCtSequence[frameIdx] = croppedFrame
+        croppedFrameNode = self.getCroppedFrame(frameIdx)
+        AutoscoperMLogic.cropVolumeFromROI(ctFrame, self.roi, croppedFrameNode)
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
@@ -168,15 +184,10 @@ class TreeNode:
         return AutoscoperMLogic.getItemInSequence(self.transformSequence, idx)[0]
 
     def getCroppedFrame(self, idx: int) -> slicer.vtkMRMLScalarVolumeNode:
-        # TODO: store cropped frames in sequence
-        """if idx >= self.croppedCtSequence.GetNumberOfDataNodes():
+        if idx >= self.croppedCtSequence.GetNumberOfDataNodes():
             logging.warning(f"Provided index {idx} is greater than number of data nodes in the sequence.")
             return None
-        return self.croppedCtSequence.GetNthDataNode(idx)"""
-        if idx not in self.croppedCtSequence:
-            logging.warning(f"Provided index {idx} not found in the sequence of cropped volumes.")
-            return None
-        return self.croppedCtSequence[idx]
+        return AutoscoperMLogic.getItemInSequence(self.croppedCtSequence, idx)[0]
 
     def _applyTransform(self, idx: int, transform: slicer.vtkMRMLTransformNode) -> None:
         """Applies and hardends a transform node to the transform sequence at the provided index."""

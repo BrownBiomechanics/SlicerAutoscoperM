@@ -1316,25 +1316,30 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         """Utility function to check if the bounds of the ROI exceed those of
         the target volume, and if so compute the bounds of their intersection"""
         roi_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vol_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        volume_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         roiNode.GetBounds(roi_bounds)
-        volumeNode.GetBounds(vol_bounds)
+        volumeNode.GetBounds(volume_bounds)
 
         # to find intersection of bbs, take the max of the mins and the min of the maxs
         import numpy as np
-        bb_min = np.array([
-            max(roi_bounds[0], vol_bounds[0]),
-            max(roi_bounds[2], vol_bounds[2]),
-            max(roi_bounds[4], vol_bounds[4])
-        ])
-        bb_max = np.array([
-            min(roi_bounds[1], vol_bounds[1]),
-            min(roi_bounds[3], vol_bounds[3]),
-            min(roi_bounds[5], vol_bounds[5])
-        ])
+
+        bb_min = np.array(
+            [
+                max(roi_bounds[0], volume_bounds[0]),
+                max(roi_bounds[2], volume_bounds[2]),
+                max(roi_bounds[4], volume_bounds[4]),
+            ]
+        )
+        bb_max = np.array(
+            [
+                min(roi_bounds[1], volume_bounds[1]),
+                min(roi_bounds[3], volume_bounds[3]),
+                min(roi_bounds[5], volume_bounds[5]),
+            ]
+        )
 
         # check if the bounds of the intersection are different than the original ROI
-        bb_bounds = np.ravel([bb_min, bb_max], 'F')
+        bb_bounds = np.ravel([bb_min, bb_max], "F")
         if np.any(np.abs(bb_bounds - np.array(roi_bounds))):
             # ROI bounds need trimming, so return the new bounds
             bb_center = (bb_min + bb_max) / 2
