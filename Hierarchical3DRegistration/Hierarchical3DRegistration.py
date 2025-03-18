@@ -362,7 +362,7 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
         self.currentBone = self.bonesToTrack.pop(0)
 
         # update UI to prepare for automated registration
-        self.currentBone.stopInteraction(targetFrameIdx)
+        manual_tfm = self.currentBone.stopInteraction(targetFrameIdx)
         slicer.util.forceRenderAllViews()
         self._parameterNode.statusMsg = f"Registering bone '{self.currentBone.name}' in frame {targetFrameIdx}"
 
@@ -371,7 +371,7 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
         self.currentBone.setupFrame(targetFrameIdx, target_volume)
 
         # perform the registration and update the hierarchy
-        self.logic.registerBoneInFrame(self.currentBone, targetFrameIdx, self._parameterNode.trackOnlyRoot)
+        self.logic.registerBoneInFrame(self.currentBone, targetFrameIdx, manual_tfm, self._parameterNode.trackOnlyRoot)
 
         # If there is a next frame to register, copy the result transform as the next initial guess
         if targetFrameIdx != self._parameterNode.endFrameIdx:
@@ -641,17 +641,21 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         sourceVolume: vtkMRMLScalarVolumeNode,
         targetVolume: vtkMRMLScalarVolumeNode,
         transformNode: vtkMRMLLinearTransformNode,
-    ) -> None:
+    ) -> vtkMRMLLinearTransformNode:
         """
         Registers a source volume to a target volume using ITKElastix.
         The output of this function is written into transformNode such that,
         when applied on the source image, will align it with the target image.
+        The relative transform found by ITKElastix is also returned.
 
         :param sourceVolume: the source input to be registered, aka the "moving image"
         :param targetVolume: the target input to be registered, aka the "fixed image"
         :param transformNode: the initial guess transform, node will be overwritten to
                               the composition of its value and the ITKElastix result
                               (the total transform from sourceVolume to targetVolume)
+
+        :return: the transform node representing the result relative transform from
+                 sourceVolume *with* the transformNode applied, to targetVolume
         """
         from tempfile import NamedTemporaryFile
 
@@ -701,13 +705,13 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
         transformNode.SetAndObserveTransformNodeID(resultTransform.GetID())
         transformNode.HardenTransform()
 
-        # Clean up intermediate result node that was just added to the scene
-        slicer.mrmlScene.RemoveNode(resultTransform)
+        return resultTransform
 
     def registerBoneInFrame(
         self,
         boneNode: TreeNode,
         targetFrameIdx: int,
+        manualTfmMatrix: vtk.vtkMatrix4x4,
         trackOnlyRoot: bool = False,
     ) -> None:
         """
@@ -715,20 +719,26 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
         :param boneNode: the object representing the bone to be registered
         :param targetFrameIdx: the target frame index the bone will be registered to
+        :param manualTfmMatrix: the matrix representing the portion of the transform
+                                  adjusted by the user, to be used with elastix results
         :param trackOnlyRoot: whether to propagate the result to child node in the hierarchy
         """
         import logging
         import time
 
-        # get the moving and fixed images for registration, as well as the initial guess transform
+        # Get the moving and fixed images for registration, as well as the initial guess transform.
+        # This transform is ready to be input to elastix, and it's comprised of the initial bone
+        # position and the manual adjustment made by the user.
         source_cropped_volume = boneNode.croppedSourceVolume
         target_cropped_volume = boneNode.getCroppedFrame(targetFrameIdx)
         bone_tfm = boneNode.getTransform(targetFrameIdx)
 
-        # calculate the relative transform from the source to the target volume
+        # Calculate the relative transform from the source to the target volume.
+        # NOTE: The result of the complete transform of the bone from the source volume is written
+        # into the bone_tfm node, which is already saved in the TreeNode's transformSequence.
         logging.info(f"Registering: {boneNode.name} to frame {targetFrameIdx}")
         start = time.time()
-        self.registerRigidBody(
+        elastix_tfm = self.registerRigidBody(
             source_cropped_volume,
             target_cropped_volume,
             bone_tfm,
@@ -738,4 +748,20 @@ class Hierarchical3DRegistrationLogic(ScriptedLoadableModuleLogic):
 
         # propagate the result transform to all child nodes of the current bone in the hierarchy
         if not trackOnlyRoot:
-            boneNode.applyTransformToChildren(targetFrameIdx, bone_tfm)
+            # We want to propagate the transform from this bone's initial position in this frame to
+            # the position found by the elastix optimization. This is euqal to the composition of
+            # the manual adjustment from the user (or just the identity if none was performed), and
+            # the elastix result transform.
+            elastix_tfm_matrix = vtk.vtkMatrix4x4()
+            elastix_tfm.GetMatrixTransformToParent(elastix_tfm_matrix)
+            source_to_target_matrix = vtk.vtkMatrix4x4()
+            vtk.vtkMatrix4x4.Multiply4x4(elastix_tfm_matrix, manualTfmMatrix, source_to_target_matrix)
+            source_to_target_tfm = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+            source_to_target_tfm.SetMatrixTransformToParent(source_to_target_matrix)
+
+            # apply recursively to all child nodes of the current bone, then clean up
+            boneNode.applyTransformToChildren(targetFrameIdx, source_to_target_tfm)
+            slicer.mrmlScene.RemoveNode(source_to_target_tfm)
+
+        # Clean up intermediate result node that was just added to the scene
+        slicer.mrmlScene.RemoveNode(elastix_tfm)

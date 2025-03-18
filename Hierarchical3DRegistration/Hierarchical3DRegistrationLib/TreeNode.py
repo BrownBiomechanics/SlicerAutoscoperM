@@ -59,6 +59,10 @@ class TreeNode:
         self.transformSequence = self._initializeTransforms(ctSequence)
         self.croppedCtSequence = self._initializeCroppedCT(ctSequence)
 
+        # initialize temporary variable to save the recent transform before manual adjustment
+        self.currTransformBeforeAdjustment = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLinearTransformNode")
+        self.currTransformBeforeAdjustment.UnRegister(None)  # release extra reference to avoid memory leak message
+
         # recursively create any child nodes from the subject hierarchy
         children_ids = []
         self.shNode.GetItemChildren(self.hierarchyID, children_ids)
@@ -120,6 +124,7 @@ class TreeNode:
     def startInteraction(self, frameIdx) -> None:
         """Enable model visibility and transform interaction for this bone in the current frame"""
         current_tfm = self.getTransform(frameIdx)
+        self.currTransformBeforeAdjustment.CopyContent(current_tfm, True)
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.model.SetDisplayVisibility(True)
         model_display = self.model.GetDisplayNode()
@@ -137,7 +142,7 @@ class TreeNode:
 
         slicer.app.processEvents()
 
-    def stopInteraction(self, frameIdx) -> None:
+    def stopInteraction(self, frameIdx) -> vtk.vtkMatrix4x4:
         """Disable transform interaction for this bone in the current frame"""
         self.model.SetDisplayVisibility(True)
         model_display = self.model.GetDisplayNode()
@@ -150,7 +155,25 @@ class TreeNode:
         tfm_display.SetEditorVisibility(False)
         tfm_display.SetEditorVisibility3D(False)
 
+        # calculate the component of the transform modified by the user interaction
+        current_tfm = self.getTransform(frameIdx)
+        current_tfm_matrix = vtk.vtkMatrix4x4()
+        current_tfm.GetMatrixTransformToParent(current_tfm_matrix)
+
+        inverse_tfm_before_adjustment_matrix = vtk.vtkMatrix4x4()
+        self.currTransformBeforeAdjustment.GetMatrixTransformToParent(inverse_tfm_before_adjustment_matrix)
+        inverse_tfm_before_adjustment_matrix.Invert()
+
+        tfm_manual = vtk.vtkMatrix4x4()
+        vtk.vtkMatrix4x4.Multiply4x4(current_tfm_matrix, inverse_tfm_before_adjustment_matrix, tfm_manual)
+
+        # reset the helper variable with the identity for next time
+        identity_matrix = vtk.vtkMatrix4x4()
+        self.currTransformBeforeAdjustment.SetMatrixTransformToParent(identity_matrix)
+
         slicer.app.processEvents()
+
+        return tfm_manual
 
     def setupFrame(self, frameIdx, ctFrame) -> None:
         """
