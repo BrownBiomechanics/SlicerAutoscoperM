@@ -125,6 +125,8 @@ class TreeNode:
         """Enable model visibility and transform interaction for this bone in the current frame"""
         current_tfm = self.getTransform(frameIdx)
         self.currTransformBeforeAdjustment.CopyContent(current_tfm, True)
+
+        self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.model.SetDisplayVisibility(True)
         model_display = self.model.GetDisplayNode()
@@ -179,22 +181,29 @@ class TreeNode:
         """
         Crop the target CT frame based on the initial guess transform and this node's ROI.
         """
+        current_tfm = self.getTransform(frameIdx)
+        self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
+
         # first check if the roi bounds exceed the CT frame target volume
-        new_roi_dims = AutoscoperMLogic.checkROIBoundsExceeding(self.roi, ctFrame)
+        new_roi_dims = AutoscoperMLogic.checkROIAndVolumeOverlap(self.roi, ctFrame)
         if None not in new_roi_dims:
-            # update roi to dimension of the intersection
+            logging.info(f"Downsizing ROI of bone '{self.name}' to not exceed target volume '{ctFrame.GetName()}'")
+            # update roi to dimension of the intersection and align it
             new_roi_center, new_roi_size = new_roi_dims
             self.roi.SetCenter(new_roi_center)
             self.roi.SetSize(new_roi_size)
+            current_tfm.Inverse()
+            self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
+            self.roi.HardenTransform()
+            current_tfm.Inverse()
             # replace the cropped source volume with that from the new roi
             slicer.mrmlScene.RemoveNode(self.croppedSourceVolume)
             self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, self.roi)
-            self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped")
+            self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped_source")
+            self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
 
         # generate cropped volume from the given frame
-        current_tfm = self.getTransform(frameIdx)
         self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
-        self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.croppedSourceVolume.SetAndObserveTransformNodeID(current_tfm.GetID())
         croppedFrameNode = self.getCroppedFrame(frameIdx)
         AutoscoperMLogic.cropVolumeFromROI(ctFrame, self.roi, croppedFrameNode)

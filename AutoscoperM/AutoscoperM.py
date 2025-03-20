@@ -1304,20 +1304,21 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         bb_max = np.array([model_bounds[1], model_bounds[3], model_bounds[5]])
 
         bb_center = (bb_min + bb_max) / 2
-        bb_size = bb_min - bb_max
+        bb_size = bb_max - bb_min
 
         return bb_center.tolist(), bb_size.tolist()
 
     @staticmethod
-    def checkROIBoundsExceeding(
+    def checkROIAndVolumeOverlap(
         roiNode: slicer.vtkMRMLMarkupsROINode,
         volumeNode: slicer.vtkMRMLScalarVolumeNode,
     ) -> Optional[list[float]]:
         """Utility function to check if the bounds of the ROI exceed those of
         the target volume, and if so compute the bounds of their intersection"""
-        roi_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        roi_transformed_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        roiNode.GetRASBounds(roi_transformed_bounds)
+
         volume_bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        roiNode.GetBounds(roi_bounds)
         volumeNode.GetBounds(volume_bounds)
 
         # to find intersection of bbs, take the max of the mins and the min of the maxs
@@ -1325,25 +1326,33 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
         bb_min = np.array(
             [
-                max(roi_bounds[0], volume_bounds[0]),
-                max(roi_bounds[2], volume_bounds[2]),
-                max(roi_bounds[4], volume_bounds[4]),
+                max(roi_transformed_bounds[0], volume_bounds[0]),
+                max(roi_transformed_bounds[2], volume_bounds[2]),
+                max(roi_transformed_bounds[4], volume_bounds[4]),
             ]
         )
         bb_max = np.array(
             [
-                min(roi_bounds[1], volume_bounds[1]),
-                min(roi_bounds[3], volume_bounds[3]),
-                min(roi_bounds[5], volume_bounds[5]),
+                min(roi_transformed_bounds[1], volume_bounds[1]),
+                min(roi_transformed_bounds[3], volume_bounds[3]),
+                min(roi_transformed_bounds[5], volume_bounds[5]),
             ]
         )
 
         # check if the bounds of the intersection are different than the original ROI
         bb_bounds = np.ravel([bb_min, bb_max], "F")
-        if np.any(np.abs(bb_bounds - np.array(roi_bounds))):
-            # ROI bounds need trimming, so return the new bounds
+        if np.any(np.abs(bb_bounds - np.array(roi_transformed_bounds))):
+            # if there is any difference between the bounds of the transformed ROI
+            # and the bounds of the intersection, it must mean that the transformed
+            # ROI exceeds the bounds of the target volume, so we need to trim it.
+
+            # sanity check that there is any overlap at all
+            bb_size = bb_max - bb_min
+            if np.any(bb_size <= 0):
+                raise ValueError("Invalid transformation chosen, ROI and target volume node do not overlap!")
+
             bb_center = (bb_min + bb_max) / 2
-            bb_size = bb_min - bb_max
+
             return bb_center.tolist(), bb_size.tolist()
 
         return None, None
@@ -1359,7 +1368,7 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         cvpn = slicer.vtkMRMLCropVolumeParametersNode()
         cvpn.SetROINodeID(roiNode.GetID())
         cvpn.SetInputVolumeNodeID(inputVolumeNode.GetID())
-        cvpn.SetVoxelBased(True)
+        cvpn.SetVoxelBased(False)
         if outputVolumeNode is not None:
             cvpn.SetOutputVolumeNodeID(outputVolumeNode.GetID())
 
