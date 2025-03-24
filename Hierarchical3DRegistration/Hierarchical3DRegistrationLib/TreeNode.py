@@ -229,13 +229,6 @@ class TreeNode:
         current_transform.SetAndObserveTransformNodeID(transform.GetID())
         current_transform.HardenTransform()
 
-    def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:  # TODO: revisit for import
-        """TODO description"""
-        current_transform = self.getTransform(idx)
-        if current_transform is None:
-            return
-        current_transform.SetMatrixTransformToParent(transform)
-
     def applyTransformToChildren(self, idx: int, transform: slicer.vtkMRMLLinearTransformNode) -> None:
         """Applies the transform at the provided index to all children of this node."""
         for childNode in self.childNodes:
@@ -262,7 +255,15 @@ class TreeNode:
         for childNode in self.childNodes:
             childNode.setModelsVisibility(visibility)
 
-    def exportTransformsAsTRAFile(self, exportDir: str):  # TODO: revisit for export
+    def setTransformFromMatrix(self, transform: vtk.vtkMatrix4x4, idx: int) -> None:
+        """Sets the registration transform for the given index from the input matrix"""
+        current_transform = self.getTransform(idx)
+        if current_transform is None:
+            raise ValueError(f"Could not set transform at index {idx} of '{self.transformSequence.GetName()}'.")
+        current_transform.SetMatrixTransformToParent(transform)
+        self.model.SetAndObserveTransformNodeID(current_transform.GetID())
+
+    def exportTransformsAsTRAFile(self, exportDir: str):
         """Exports the sequence as a TRA file for reading into Autoscoper."""
         # Convert the sequence to a list of vtkMatrices
         transforms = []
@@ -277,8 +278,8 @@ class TreeNode:
         filename = os.path.join(exportDir, f"{self.name}-abs-RAS.tra")
         IO.writeTRA(filename, transforms)
 
-    def importTransfromsFromTRAFile(self, filename: str):  # TODO: revisit for import
-        """TODO description"""
+    def importTransfromsFromTRAFile(self, filename: str):
+        """Loads a TRA file as the registration transform sequence"""
         import numpy as np
 
         tra = np.loadtxt(filename, delimiter=",")

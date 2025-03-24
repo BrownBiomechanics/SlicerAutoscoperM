@@ -15,6 +15,7 @@ from slicer.ScriptedLoadableModule import (
 from slicer.util import VTKObservationMixin
 
 from AutoscoperM import AutoscoperMLogic
+from AutoscoperMLib import Validation
 from Hierarchical3DRegistrationLib.TreeNode import TreeNode
 
 
@@ -394,7 +395,6 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
                     self._parameterNode.volumeSequence
                 )
                 browserNode.SetSelectedItemNumber(self._parameterNode.endFrameIdx)
-                self.cleanupRegistrationProcess()
                 self.updateProgressBar(100)
                 return slicer.util.messageBox("Success! Registration Complete.")
 
@@ -465,33 +465,43 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
         self._parameterNode.runSatus = Hierarchical3DRegistrationRunStatus.NOT_RUNNING
         self.updateRegistrationButtonsState()
 
-    def onImportButton(self):  # TODO: revisit
+    def onImportButton(self):
         """UI button for reading the TRA files into sequences."""
+        # TODO: this currently works as a mean to load previous results to the scene,
+        # but we should improve the workflow for importing and then registering with the same
+        # instance of TreeNode (like appropriately setting the run status and clickable buttons)
         import glob
         import logging
         import os
 
         with slicer.util.tryWithErrorDisplay("Failed to import transforms", waitCursor=True):
-            currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem() != 0
-            if not currentRootIDStatus:  # TODO: Remove this once this is working with the parameterNodeWrapper
-                raise ValueError("Invalid hierarchy object selected!")
-
-            CT = self.ui.inputCTSequenceSelector.currentNode()
-            rootID = self.ui.SubjectHierarchyComboBox.currentItem()
-            rootNode = TreeNode(hierarchyID=rootID, ctSequence=CT, isRoot=True)
-
             importDir = self.ui.ioDir.currentPath
-            if importDir == "":
-                raise ValueError("Import directory not set!")
+            Validation.validateInputs(importDir=importDir)
+            Validation.validatePaths(importDir=importDir)
 
-            node_list = [rootNode]
+            if self._parameterNode is None or self.rootBone is None:
+                # TODO: Remove this once this is working with the parameterNodeWrapper
+                #  see Slicer issue: https://github.com/Slicer/Slicer/issues/7905
+                currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem()
+                if currentRootIDStatus == 0:
+                    raise ValueError("Invalid hierarchy object selected!")
+                self._parameterNode.hierarchyRootID = currentRootIDStatus
+
+                if self._parameterNode.sourceVolume.GetID() == self._parameterNode.volumeSequence.GetID():
+                    raise ValueError("The source volume must not be the same as the input sequence selected!")
+
+                self.rootBone = TreeNode(
+                    hierarchyID=self._parameterNode.hierarchyRootID,
+                    ctSequence=self._parameterNode.volumeSequence,
+                    sourceVolume=self._parameterNode.sourceVolume,
+                    isRoot=True,
+                )
+
+            node_list = [self.rootBone]
             for node in node_list:
-                node.model.SetAndObserveTransformNodeID(node.getTransform(0).GetID())
-                node_list.extend(node.childNodes)
-
                 foundFiles = glob.glob(os.path.join(importDir, f"{node.name}*.tra"))
                 if len(foundFiles) == 0:
-                    logging.warning(f"No files found matching the '{node.name}*.tra' pattern")
+                    raise ValueError(f"No files found matching the '{node.name}*.tra' pattern")
                     return
 
                 if len(foundFiles) > 1:
@@ -500,27 +510,27 @@ class Hierarchical3DRegistrationWidget(ScriptedLoadableModuleWidget, VTKObservat
                     )
 
                 node.importTransfromsFromTRAFile(foundFiles[0])
+                node_list.extend(node.childNodes)
+
+            self.rootBone.setModelsVisibility(True)
+
         slicer.util.messageBox("Success!")
 
-    def onExportButton(self):  # TODO: revisit
+    def onExportButton(self):
         """UI button for writing the sequences as TRA files."""
         with slicer.util.tryWithErrorDisplay("Failed to export transforms.", waitCursor=True):
-            currentRootIDStatus = self.ui.SubjectHierarchyComboBox.currentItem() != 0
-            if not currentRootIDStatus:  # TODO: Remove this once this is working with the parameterNodeWrapper
-                raise ValueError("Invalid hierarchy object selected!")
-
-            CT = self.ui.inputCTSequenceSelector.currentNode()
-            rootID = self.ui.SubjectHierarchyComboBox.currentItem()
-            rootNode = TreeNode(hierarchyID=rootID, ctSequence=CT, isRoot=True)
+            if self._parameterNode is None or self.rootBone is None:
+                raise ValueError("Cannot export as no session is ongoing!")
 
             exportDir = self.ui.ioDir.currentPath
-            if exportDir == "":
-                raise ValueError("Export directory not set!")
+            Validation.validateInputs(exportDir=exportDir)
+            Validation.validatePaths(exportDir=exportDir)
 
-            node_list = [rootNode]
+            node_list = [self.rootBone]
             for node in node_list:
                 node.exportTransformsAsTRAFile(exportDir)
                 node_list.extend(node.childNodes)
+
         slicer.util.messageBox("Success!")
 
     def updateFrameSlider(self, CTSelectorNode: slicer.vtkMRMLNode):
