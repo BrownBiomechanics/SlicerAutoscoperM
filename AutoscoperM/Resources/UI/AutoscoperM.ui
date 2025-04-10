@@ -48,6 +48,20 @@
          <item>
           <widget class="QComboBox" name="autoscoperRenderingBackendComboBox"/>
          </item>
+         <item>
+          <widget class="QComboBox" name="autoscoperCollisionDetectionComboBox">
+           <item>
+            <property name="text">
+             <string>With Collision Detection</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Without Collision Detection</string>
+            </property>
+           </item>
+          </widget>
+         </item>
         </layout>
        </item>
        <item>

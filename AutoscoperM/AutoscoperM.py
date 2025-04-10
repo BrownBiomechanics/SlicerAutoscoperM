@@ -159,6 +159,8 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode = None
         self._updatingGUIFromParameterNode = False
         self.autoscoperExecutables = {}
+        for withCollisionDetection in [True, False]:
+            self.autoscoperExecutables[withCollisionDetection] = {}
 
     def setup(self):
         """
@@ -198,20 +200,22 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Lookup Autoscoper executables
         for backend in ["CUDA", "OpenCL"]:
-            executableName = AutoscoperMWidget.autoscoperExecutableName(backend)
-            logging.info(f"Looking up '{executableName}' executable")
-            path = shutil.which(executableName)
-            if path:
-                self.autoscoperExecutables[backend] = path
-                logging.info(f"Found '{path}'")
-            else:
-                logging.info("No executable found")
+            for withCollisionDetection in [True, False]:
+                executableName = AutoscoperMWidget.autoscoperExecutableName(backend, withCollisionDetection)
+                logging.info(f"Looking up '{executableName}' executable")
+                path = shutil.which(executableName)
+                if path:
+                    self.autoscoperExecutables[withCollisionDetection][backend] = path
+                    logging.info(f"Found '{path}'")
+                else:
+                    logging.info("No executable found")
 
         if not self.autoscoperExecutables:
             logging.error("Failed to lookup autoscoper executables")
 
         # Available Autoscoper backends
-        self.ui.autoscoperRenderingBackendComboBox.addItems(list(self.autoscoperExecutables.keys()))
+        backendKeys = list({backend for withCD in self.autoscoperExecutables.values() for backend in withCD})
+        self.ui.autoscoperRenderingBackendComboBox.addItems(backendKeys)
 
         # Sample Data Buttons
         self.ui.wristSampleButton.connect("clicked(bool)", lambda: self.onSampleDataButtonClicked("2025-02-19-Wrist"))
@@ -361,10 +365,15 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def autoscoperExecutableToLaunchBackend(self, value):
         self.ui.autoscoperRenderingBackendComboBox.currentText = value
 
+    @property
+    def autoscoperExecutableCollisionDetectionMode(self):
+        return self.ui.autoscoperCollisionDetectionComboBox.currentText
+
     @staticmethod
-    def autoscoperExecutableName(backend=None):
+    def autoscoperExecutableName(backend=None, collisionDetectionEnabled=None):
         """Returns the Autoscoper executable name to lookup given a backend name."""
         suffix = f"-{backend}" if backend else ""
+        suffix += "-CollisionDetection" if collisionDetectionEnabled else ""
         return f"autoscoper{suffix}"
 
     def startAutoscoper(self):
@@ -373,7 +382,9 @@ class AutoscoperMWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         This call waits that the process has been started and returns.
         """
         try:
-            executablePath = self.autoscoperExecutables[self.autoscoperExecutableToLaunchBackend]
+            executablePath = self.autoscoperExecutables[self.autoscoperExecutableCollisionDetectionMode][
+                self.autoscoperExecutableToLaunchBackend
+            ]
         except KeyError:
             logging.error("Autoscoper executable not found")
             return
