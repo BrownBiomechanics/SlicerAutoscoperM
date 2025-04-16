@@ -142,7 +142,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       COMMAND install_name_tool -id ${tiff_library} ${tiff_library}
       DEPENDEES build
       )
-    set(autoscoper_executable ${EP_BINARY_DIR}/Autoscoper-build/${Slicer_INSTALL_THIRDPARTY_BIN_DIR}/autoscoper)
+    set(autoscoper_executable ${EP_BINARY_DIR}/Autoscoper-build/${Slicer_INSTALL_THIRDPARTY_BIN_DIR}/autoscoper${${proj}_ARTIFACT_SUFFIX})
     ExternalProject_Add_Step(${proj} fix_autoscoper_rpath
       COMMAND install_name_tool
         -change "@rpath/libGLEW$<$<CONFIG:Debug>:d>.2.2.dylib" ${glew_library}
