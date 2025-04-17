@@ -35,7 +35,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
 
   ExternalProject_SetIfNotDefined(
     Slicer_${proj}_GIT_TAG
-    "8bb1c4e07430dcc53c9771582b97f3bbb9ed2347"
+    "051bc0fbcf53fed7cb7f85e74063584be0f6ee7d"
     QUIET
   )
 
@@ -65,6 +65,10 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
     message(FATAL_ERROR "${proj}RENDERING_BACKEND must be set to CUDA or OpenCL")
   endif()
 
+  if(NOT DEFINED ${proj}_COLLISION_DETECTION OR NOT "${${proj}_COLLISION_DETECTION}" MATCHES "^(0|1)$")
+    message(FATAL_ERROR "${proj}_COLLISION_DETECTION must be set to 0 or 1")
+  endif()
+
   if(${proj}_RENDERING_BACKEND STREQUAL "OpenCL")
     set(${proj}_OPENCL_USE_ICD_LOADER TRUE)
     if(APPLE)
@@ -86,8 +90,17 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${SUPERBUILD_TOPLEVEL_PROJECT}_USE_SYSTEM_${p
       )
   endif()
 
+  if(${proj}_COLLISION_DETECTION)
+    list(APPEND EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS
+      -DVTK_DIR:STRING=${VTK_DIR}
+      )
+  endif()
+
   if(NOT DEFINED ${proj}_ARTIFACT_SUFFIX)
     set(${proj}_ARTIFACT_SUFFIX "-${${proj}_RENDERING_BACKEND}")
+    if(${proj}_COLLISION_DETECTION)
+      set(${proj}_ARTIFACT_SUFFIX "${${proj}_ARTIFACT_SUFFIX}-CollisionDetection")
+    endif()
   endif()
   ExternalProject_Message(${proj} "${proj}_ARTIFACT_SUFFIX:${${proj}_ARTIFACT_SUFFIX}")
 

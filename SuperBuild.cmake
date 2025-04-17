@@ -19,6 +19,7 @@ set(proj ${SUPERBUILD_TOPLEVEL_PROJECT})
 # Project dependencies
 set(${proj}_DEPENDS
   Autoscoper-OpenCL
+  Autoscoper-OpenCL-CollisionDetection
   )
 
 if(DEFINED ENV{SlicerAutoscoperM_CUDA_PATH})
@@ -50,6 +51,7 @@ if(CMAKE_CUDA_COMPILER)
   endif()
   list(APPEND ${proj}_DEPENDS
     Autoscoper-CUDA
+    Autoscoper-CUDA-CollisionDetection
     )
 endif()
 
