@@ -2,6 +2,7 @@ from typing import Optional
 
 import slicer
 import vtk
+from slicer.i18n import tr as _
 from slicer.parameterNodeWrapper import (
     parameterNodeWrapper,
 )
@@ -24,7 +25,7 @@ class TrackingEvaluation(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "Tracking Evaluation"  # TODO: make this more human readable by adding spaces
+        self.parent.title = "Tracking Evaluation"
         self.parent.categories = [
             "Tracking",
         ]
@@ -36,16 +37,20 @@ class TrackingEvaluation(ScriptedLoadableModule):
             "Beatriz Paniagua (Kitware)",
             "Jean-Christophe Fillion-Robin (Kitware)",
         ]
-        # TODO: update with short description of the module and a link to online module documentation
-        self.parent.helpText = """
-This is an example of scripted loadable module bundled in an extension.
-See more information on <a href="https://autoscoper.readthedocs.io">Read the Docs</a>.
-"""
-        # TODO: replace with organization, grant and thanks
-        self.parent.acknowledgementText = """
-This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
-and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
-"""
+        self.parent.helpText = _(
+            """
+            A module for comparison of the Autoscoper tracking results against ground truth data. See more information
+            in the <a href="https://autoscoper.readthedocs.io/en/latest/tutorials/evaluating-tracking-results.html">
+            module guide</a>.
+            """
+        )
+        self.parent.acknowledgementText = _(
+            """
+            This module was developed in collaboration with Kitware, Brown University and Rhode Island Hospital, Mayo
+            Clinic, Queen's University, and Cleveland Clinic, with support from the NIH NIAMS under Award Number
+            R01AR078924.
+            """
+        )
 
 
 #

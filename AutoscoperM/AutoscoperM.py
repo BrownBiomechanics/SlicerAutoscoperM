@@ -11,6 +11,7 @@ import qt
 import slicer
 import vtk
 import vtkAddon
+from slicer.i18n import tr as _
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
@@ -43,16 +44,23 @@ class AutoscoperM(ScriptedLoadableModule):
             "Beatriz Paniagua (Kitware)",
             "Jean-Christophe Fillion-Robin (Kitware)",
         ]
-        # TODO: update with short description of the module and a link to online module documentation
-        self.parent.helpText = """
-This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#AutoscoperM">module documentation</a>.
-"""
-        # TODO: replace with organization, grant and thanks
-        self.parent.acknowledgementText = """
-This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
-and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
-"""
+        self.parent.helpText = _(
+            """
+            This module integrates Autoscoper, an open source application for 3D tracking of skeletal structures in
+            single-, bi- and multi-plane videoradiography. The AutoscoperM module also includes pre-processing
+            functionalities for Autoscoper videoradiography inputs and for the 3D Hierarchical Registration module in
+            the SlicerAutoscoperM extension. See more information in the
+            <a href="https://autoscoper.readthedocs.io/en/latest/about.html">SlicerAutoscoperM documentation</a> and
+            <a href="https://autoscoper.readthedocs.io/en/latest/tutorials/index.html">user guides</a>.
+            """
+        )
+        self.parent.acknowledgementText = _(
+            """
+            This module was developed in collaboration with Kitware, Brown University and Rhode Island Hospital, Mayo
+            Clinic, Queen's University, and Cleveland Clinic, with support from the NIH NIAMS under Award Number
+            R01AR078924.
+            """
+        )
 
         # Additional initialization step after application startup is complete
         slicer.app.connect("startupCompleted()", registerSampleData)

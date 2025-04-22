@@ -40,19 +40,20 @@ class Hierarchical3DRegistration(ScriptedLoadableModule):
             "Beatriz Paniagua (Kitware)",
             "Jean-Christophe Fillion-Robin (Kitware)",
         ]
-        # TODO: update with short description of the module and a link to online module documentation
-        # _() function marks text as translatable to other languages
         self.parent.helpText = _(
             """
-        This is an example of scripted loadable module bundled in an extension.
-        """
+            A module for registration of rigid skeletal and implant motion from static and dynamic computed tomography
+            (3DCT and 4DCT). See more information and instructions in the
+            <a href="https://autoscoper.readthedocs.io/en/latest/tutorials/hierarchical-3d-registration.html">module
+            documentation</a>.
+            """
         )
-        # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = _(
             """
-        This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
-        and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
-        """
+            This module was developed in collaboration with Kitware, Brown University and Rhode Island Hospital, Mayo
+            Clinic, Queen's University, and Cleveland Clinic, with support from the NIH NIAMS under Award Number
+            R01AR078924.
+            """
         )
 
 
