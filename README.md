@@ -14,8 +14,6 @@ with [Autoscoper][] for image-based 3D motion tracking of skeletal structures.
 | [Hierarchical3DRegistration](Hierarchical3DRegistration) | A module for registration of rigid skeletal and implant motion from static and dynamic computed tomography (3DCT and 4DCT) |
 | [Tracking Evaluation](TrackingEvaluation) | A module for comparison of the Autoscoper tracking results against ground truth data. |
 
-_:warning: This extension is in early development statge. Its content, API and behavior may change at any time. We mean it!_
-
 ## Python Linting
 
 This project uses pre-commit and black for linting.
