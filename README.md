@@ -10,7 +10,9 @@ with [Autoscoper][] for image-based 3D motion tracking of skeletal structures.
 
 | Name | Description |
 |------|-------------|
-| [AutoscoperM](AutoscoperM) | Allows to communicate with the Autoscoper process over a TCP connection. |
+| [AutoscoperM](AutoscoperM) | This module integrates Autoscoper, an open source application for 3D tracking of skeletal structures in single-, bi- and multi-plane videoradiography. The AutoscoperM module also includes pre-processing functionalities for Autoscoper videoradiography inputs and for the 3D Hierarchical Registration module. |
+| [Hierarchical3DRegistration](Hierarchical3DRegistration) | A module for registration of rigid skeletal and implant motion from static and dynamic computed tomography (3DCT and 4DCT) |
+| [Tracking Evaluation](TrackingEvaluation) | A module for comparison of the Autoscoper tracking results against ground truth data. |
 
 _:warning: This extension is in early development statge. Its content, API and behavior may change at any time. We mean it!_
 
