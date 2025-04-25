@@ -123,7 +123,7 @@ def sampleDataConfigFile(dataType):
     return {
         "2025-02-19-Wrist": "Wrist_Sample_Data.cfg",
         "2025-02-10-Knee": "Knee_Sample_Data.cfg",
-        "2025-01-12-Ankle": "2023-07-20-Ankle.cfg",
+        "2025-01-12-Ankle": "2025-01-12-Ankle.cfg",
     }.get(dataType)
 
 
