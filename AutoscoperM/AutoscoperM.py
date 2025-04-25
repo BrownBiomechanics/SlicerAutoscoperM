@@ -113,6 +113,8 @@ def registerAutoscoperSampleData(dataType, version, checksum):
         # This node name will be used when the data set is loaded
         # nodeNames=f"AutoscoperM - {dataType} BVR" # comment this line so the data is not loaded into the scene
         customDownloader=downloadAndExtract,
+        # File format name(s) (if not specified then the default file reader will be used).
+        loadFileTypes="ZipFile",
     )
 
 
