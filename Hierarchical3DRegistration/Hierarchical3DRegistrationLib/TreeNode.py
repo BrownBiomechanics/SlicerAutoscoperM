@@ -52,8 +52,8 @@ class TreeNode:
         self.model.SetDisplayVisibility(False)
 
         # initialize registration inputs and outputs for this node
-        self.roi = self._generateRoiFromModel()
         self.sourceVolume = sourceVolume
+        self.roi = self._generateRoiFromModel()
         self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(sourceVolume, self.roi)
         self.croppedSourceVolume.SetName(f"{sourceVolume.GetName()}_{self.name}_cropped_source")
         self.transformSequence = self._initializeTransforms(ctSequence)
@@ -71,16 +71,85 @@ class TreeNode:
             for child_id in children_ids
         ]
 
-    def _generateRoiFromModel(self) -> slicer.vtkMRMLMarkupsROINode:
+    def _generateRoiFromModel(
+        self,
+        inputModel: slicer.vtkMRMLModelNode = None,
+        inputVolume: slicer.vtkMRMLScalarVolumeNode = None,
+    ) -> slicer.vtkMRMLMarkupsROINode:
         """Creates a region of interest node from this TreeNode's model."""
+        import SegmentStatistics
+        import vtk
+
+        if inputModel is None:
+            inputModel = self.model
+        if inputVolume is None:
+            inputVolume = self.sourceVolume
+
+        segNode = slicer.vtkMRMLSegmentationNode()
+        slicer.mrmlScene.AddNode(segNode)
+        segNode.CreateDefaultDisplayNodes()
+        segNode.SetReferenceImageGeometryParameterFromVolumeNode(inputVolume)
+
+        slicer.modules.segmentations.logic().ImportModelToSegmentationNode(inputModel, segNode)
+        # Compute centroids
+
+        segStatLogic = SegmentStatistics.SegmentStatisticsLogic()
+        segStatParams = segStatLogic.getParameterNode()
+        segStatParams.SetParameter("Segmentation", segNode.GetID())
+        segStatParams.SetParameter("LabelmapSegmentStatisticsPlugin.centroid_ras.enabled", str(True))
+        segStatParams.SetParameter("LabelmapSegmentStatisticsPlugin.principal_axis_x.enabled", str(True))
+        segStatParams.SetParameter("LabelmapSegmentStatisticsPlugin.principal_axis_y.enabled", str(True))
+        segStatParams.SetParameter("LabelmapSegmentStatisticsPlugin.principal_axis_z.enabled", str(True))
+        segStatLogic.computeStatistics()
+        stats = segStatLogic.getStatistics()
+
+        sid = stats.get("SegmentIDs")
+        centroid = stats[(sid[0], "LabelmapSegmentStatisticsPlugin.centroid_ras")]
+        principal_axis_x = stats[(sid[0], "LabelmapSegmentStatisticsPlugin.principal_axis_x")]
+        principal_axis_y = stats[(sid[0], "LabelmapSegmentStatisticsPlugin.principal_axis_y")]
+        principal_axis_z = stats[(sid[0], "LabelmapSegmentStatisticsPlugin.principal_axis_z")]
+
+        vT = vtk.vtkMatrix4x4()
+        vT.Identity()
+
+        # Set the first three rows of the matrix with the vector components
+        for i in range(3):
+            vT.SetElement(0, i, principal_axis_x[i])
+            vT.SetElement(1, i, principal_axis_y[i])
+            vT.SetElement(2, i, principal_axis_z[i])
+            vT.SetElement(i, 3, centroid[i])
+
+        # Create a transform node and set the transform to it
+        tfm_pc = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+        tfm_pc.SetMatrixTransformToParent(vT)
+
+        # Clone the node
+        shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+        itemIDToClone = shNode.GetItemByDataNode(self.model)
+        clonedItemID = slicer.modules.subjecthierarchy.logic().CloneSubjectHierarchyItem(shNode, itemIDToClone)
+        clonedNode = shNode.GetItemDataNode(clonedItemID)
+
+        # apply to model clone
+        clonedNode.SetAndObserveTransformNodeID(tfm_pc.GetID())
+        clonedNode.HardenTransform()
 
         # Create ROI node
-        bb_center, bb_size = AutoscoperMLogic.getModelBoundingBox(self.model)
+        bb_center, bb_size = AutoscoperMLogic.getModelBoundingBox(clonedNode)
         modelROI = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
         modelROI.SetCenter(bb_center)
         modelROI.SetSize(bb_size)
         modelROI.SetDisplayVisibility(0)
         modelROI.SetName(f"{self.name}_roi")
+
+        # inverse tfm
+        tfm_pc.Inverse()
+        modelROI.SetAndObserveTransformNodeID(tfm_pc.GetID())
+        modelROI.HardenTransform()
+
+        # remove the transform node, seg node and the cloned model node
+        slicer.mrmlScene.RemoveNode(tfm_pc)  # remove the transform node
+        slicer.mrmlScene.RemoveNode(clonedNode)  # remove the cloned model node
+        slicer.mrmlScene.RemoveNode(segNode)  # remove the segmentation node
 
         return modelROI
 
@@ -181,32 +250,44 @@ class TreeNode:
         """
         Crop the target CT frame based on the initial guess transform and this node's ROI.
         """
+
         current_tfm = self.getTransform(frameIdx)
+        current_model = self.model
+        current_roi = self.roi
         self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
 
-        # first check if the roi bounds exceed the CT frame target volume
-        new_roi_dims = AutoscoperMLogic.checkROIAndVolumeOverlap(self.roi, ctFrame)
-        if None not in new_roi_dims:
-            logging.info(f"Downsizing ROI of bone '{self.name}' to not exceed target volume '{ctFrame.GetName()}'")
+        # next check if the roi bounds exceed the CT frame target volume
+        cut_model = AutoscoperMLogic.checkROIAndVolumeOverlap(self.roi, self.model, ctFrame)
+        if cut_model is not None:
+            logging.info(f"Using downsized ROI for '{self.name}' to not exceed target volume '{ctFrame.GetName()}'")
+            # apply the inverse of the transform from initial position so that
+            # the cut model is aligned with source volume, not current frame
+            current_tfm.Inverse()
+            cut_model.SetAndObserveTransformNodeID(current_tfm.GetID())
+            cut_model.HardenTransform()
+            current_tfm.Inverse()
             # update roi to dimension of the intersection and align it
-            new_roi_center, new_roi_size = new_roi_dims
-            self.roi.SetCenter(new_roi_center)
-            self.roi.SetSize(new_roi_size)
-            current_tfm.Inverse()
-            self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
-            self.roi.HardenTransform()
-            current_tfm.Inverse()
-            # replace the cropped source volume with that from the new roi
-            slicer.mrmlScene.RemoveNode(self.croppedSourceVolume)
-            self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, self.roi)
-            self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped_source")
-            self.roi.SetAndObserveTransformNodeID(current_tfm.GetID())
+            current_model = cut_model
+            current_roi = self._generateRoiFromModel(cut_model, ctFrame)
 
-        # generate cropped volume from the given frame
-        self.model.SetAndObserveTransformNodeID(current_tfm.GetID())
+        # generate the cropped source volume based on the current frame's roi
+        slicer.mrmlScene.RemoveNode(self.croppedSourceVolume)
+        current_roi.SetAndObserveTransformNodeID(None)
+        self.croppedSourceVolume = AutoscoperMLogic.cropVolumeFromROI(self.sourceVolume, current_roi)
+        self.croppedSourceVolume.SetName(f"{self.sourceVolume.GetName()}_{self.name}_cropped_source")
+        current_roi.SetAndObserveTransformNodeID(current_tfm.GetID())
+
+        # generate cropped target volume from the given frame
+        current_model.SetAndObserveTransformNodeID(current_tfm.GetID())
         self.croppedSourceVolume.SetAndObserveTransformNodeID(current_tfm.GetID())
         croppedFrameNode = self.getCroppedFrame(frameIdx)
-        AutoscoperMLogic.cropVolumeFromROI(ctFrame, self.roi, croppedFrameNode)
+        AutoscoperMLogic.cropVolumeFromROI(ctFrame, current_roi, croppedFrameNode)
+
+        # TODO: uncomment below when we're done debugging
+        if cut_model is not None:
+            #    # delete clone of model that was cut, as well as the ROI for it
+            slicer.mrmlScene.RemoveNode(cut_model)
+            slicer.mrmlScene.RemoveNode(current_roi)
 
     def getTransform(self, idx: int) -> slicer.vtkMRMLTransformNode:
         """Returns the transform at the provided index."""
