@@ -43,16 +43,17 @@ endif()
 include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
-  # Variable expected by CUDA language also used in Autoscoper
-  if(CMAKE_GENERATOR MATCHES "Visual Studio")
-    mark_as_superbuild(VARS CMAKE_GENERATOR_TOOLSET PROJECTS Autoscoper-CUDA)
-  else()
-    mark_as_superbuild(VARS CMAKE_CUDA_COMPILER PROJECTS Autoscoper-CUDA)
-  endif()
-  list(APPEND ${proj}_DEPENDS
+  set(autoscoper_cuda_projects
     Autoscoper-CUDA
     Autoscoper-CUDA-CollisionDetection
     )
+  # Variable expected by CUDA language also used in Autoscoper
+  if(CMAKE_GENERATOR MATCHES "Visual Studio")
+    mark_as_superbuild(VARS CMAKE_GENERATOR_TOOLSET PROJECTS ${autoscoper_cuda_projects})
+  else()
+    mark_as_superbuild(VARS CMAKE_CUDA_COMPILER PROJECTS ${autoscoper_cuda_projects})
+  endif()
+  list(APPEND ${proj}_DEPENDS ${autoscoper_cuda_projects})
 endif()
 
 ExternalProject_Include_Dependencies(${proj}
