@@ -6,6 +6,8 @@ with [Autoscoper][] for image-based 3D motion tracking of skeletal structures.
 
 [Autoscoper]: https://github.com/BrownBiomechanics/Autoscoper
 
+_📣 Call for Collaboration_ We are actively soliciting investigators from across the world who perform skeletal motion tracking and are willing to join the effort to develop and assess SAM. We welcome academic and industry partners—learn more [here](https://autoscoperm.slicer.org/call-for-collaboration/).
+
 ## Modules
 
 | Name | Description |
