@@ -1288,8 +1288,19 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
         altSign = False
         altSign = parentIJKToRAS.IsIdentity()  # ensure the parent IJK to RAS matrix is identity
 
+        # if alsign apply lpsras to the pvol2aut transform
+
+        if altSign:
+            # Apply the RAS to LPS transformation
+            raslps = vtk.vtkMatrix4x4()
+            raslps.Identity()
+            raslps.SetElement(0, 0, -1)  # R to L
+            raslps.SetElement(1, 1, -1)  # A to P
+            vtk.vtkMatrix4x4.Multiply4x4(pVol2Aut, raslps, pVol2Aut)
+
+        signMod = -1
+
         # If the parent IJK to RAS matrix is identity, offset Y pos
-        signMod = 1 if altSign else -1
 
         # Rotation matrix for a 180 x-axis rotation
         pVol2Aut.SetElement(1, 1, -pVol2Aut.GetElement(1, 1))
@@ -1304,26 +1315,22 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
     def createAndAddDicom2AutTransformNode(
         parentVolumeNode: slicer.vtkMRMLVolumeNode, origin: list[float], pvol2autNode: slicer.vtkMRMLLinearTransformNode
     ) -> slicer.vtkMRMLLinearTransformNode:
-        """Utility function that creates and adds a DICOM2AUT transform node"""
-        dicom2aut = vtk.vtkMatrix4x4()
-        dicom2aut.SetElement(0, 3, -origin[0])
-        dicom2aut.SetElement(1, 3, origin[1])
-        dicom2aut.SetElement(2, 3, origin[2])
-        dicom2aut = AutoscoperMLogic.applyPVol2AutTransform(dicom2aut, pvol2autNode)
 
         # establish parent ijktoras, offset sign dependent
         parentIJKToRAS = vtk.vtkMatrix4x4()
         parentVolumeNode.GetIJKToRASDirectionMatrix(parentIJKToRAS)
 
-        altSign = parentIJKToRAS.IsIdentity()
+        altSign = False
+        altSign = parentIJKToRAS.IsIdentity()  # ensure the parent IJK to RAS matrix is identity
 
-        if altSign:
-            # Apply the RAS to LPS transformation
-            raslps = vtk.vtkMatrix4x4()
-            raslps.Identity()
-            raslps.SetElement(0, 0, -1)  # R to L
-            raslps.SetElement(1, 1, -1)  # A to P
-            vtk.vtkMatrix4x4.Multiply4x4(raslps, dicom2aut, dicom2aut)
+        signMod = -1 if altSign else 1
+
+        """Utility function that creates and adds a DICOM2AUT transform node"""
+        dicom2aut = vtk.vtkMatrix4x4()
+        dicom2aut.SetElement(0, 3, signMod * -origin[0])
+        dicom2aut.SetElement(1, 3, signMod * origin[1])
+        dicom2aut.SetElement(2, 3, origin[2])
+        dicom2aut = AutoscoperMLogic.applyPVol2AutTransform(dicom2aut, pvol2autNode)
 
         dicom2autNode = slicer.vtkMRMLLinearTransformNode()
         dicom2autNode.SetMatrixTransformToParent(dicom2aut)
