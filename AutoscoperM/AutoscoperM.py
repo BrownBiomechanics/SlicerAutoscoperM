@@ -1093,18 +1093,19 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
             IO.writeTFMFile(f"{transformFilenameBase}.tfm", spacing, origin)
 
             # Create PVOL2AUT transform
-            pvol2autNode = self.createAndAddPVol2AutTransformNode(segmentVolume)
+            pvol2autNode = self.createAndAddPVol2AutTransformNode(volumeNode, segmentVolume)
             pvol2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-PVOL2AUT.tfm")
             slicer.util.saveNode(pvol2autNode, pvol2autFilename)
 
             # Create DICOM2AUT transform
-            dicom2autNode = self.createAndAddDicom2AutTransformNode(origin, pvol2autNode)
+            dicom2autNode = self.createAndAddDicom2AutTransformNode(volumeNode, origin, pvol2autNode)
             dicom2autFilename = os.path.join(outputDir, transformSubDir, f"{segmentVolume.GetName()}-DICOM2AUT.tfm")
             slicer.util.exportNode(dicom2autNode, dicom2autFilename)
 
             stlFilename = os.path.join(outputDir, modelSubDir, "AUT", f"AUT_{segmentVolume.GetName()}.stl")
             self.exportSTLFromSegment(segmentationNode, segmentID, stlFilename, dicom2autNode.GetTransformToParent())
 
+            slicer.mrmlScene.RemoveNode(pvol2autNode)
             slicer.mrmlScene.RemoveNode(dicom2autNode)
 
             # update progress bar
@@ -1269,19 +1270,42 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     @staticmethod
     def createAndAddPVol2AutTransformNode(
-        volumeNode: slicer.vtkMRMLVolumeNode,
+        parentVolumeNode: slicer.vtkMRMLVolumeNode,
+        subvolumeNode: slicer.vtkMRMLVolumeNode,
     ) -> slicer.vtkMRMLLinearTransformNode:
         """Utility function for creating a slicer2Autoscoper transform for the given volume."""
         bounds = [0] * 6
-        volumeNode.GetRASBounds(bounds)
+        subvolumeNode.GetRASBounds(bounds)
         volSize = [abs(bounds[i + 1] - bounds[i]) for i in range(0, len(bounds), 2)]
 
         pVol2Aut = vtk.vtkMatrix4x4()
         pVol2Aut.Identity()
+
+        # establish parent ijktoras, offset sign dependent
+        parentIJKToRAS = vtk.vtkMatrix4x4()
+        parentVolumeNode.GetIJKToRASDirectionMatrix(parentIJKToRAS)
+
+        altSign = False
+        altSign = parentIJKToRAS.IsIdentity()  # ensure the parent IJK to RAS matrix is identity
+
+        # if alsign apply lpsras to the pvol2aut transform
+
+        if altSign:
+            # Apply the RAS to LPS transformation
+            raslps = vtk.vtkMatrix4x4()
+            raslps.Identity()
+            raslps.SetElement(0, 0, -1)  # R to L
+            raslps.SetElement(1, 1, -1)  # A to P
+            vtk.vtkMatrix4x4.Multiply4x4(pVol2Aut, raslps, pVol2Aut)
+
+        signMod = -1
+
+        # If the parent IJK to RAS matrix is identity, offset Y pos
+
         # Rotation matrix for a 180 x-axis rotation
         pVol2Aut.SetElement(1, 1, -pVol2Aut.GetElement(1, 1))
         pVol2Aut.SetElement(2, 2, -pVol2Aut.GetElement(2, 2))
-        pVol2Aut.SetElement(1, 3, -volSize[1])  # Offset -Y
+        pVol2Aut.SetElement(1, 3, signMod * volSize[1])  # Offset Y (dependent on if ras or lps)
 
         pVol2AutNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
         pVol2AutNode.SetMatrixTransformToParent(pVol2Aut)
@@ -1289,12 +1313,22 @@ class AutoscoperMLogic(ScriptedLoadableModuleLogic):
 
     @staticmethod
     def createAndAddDicom2AutTransformNode(
-        origin: list[float], pvol2autNode: slicer.vtkMRMLLinearTransformNode
+        parentVolumeNode: slicer.vtkMRMLVolumeNode, origin: list[float], pvol2autNode: slicer.vtkMRMLLinearTransformNode
     ) -> slicer.vtkMRMLLinearTransformNode:
+
+        # establish parent ijktoras, offset sign dependent
+        parentIJKToRAS = vtk.vtkMatrix4x4()
+        parentVolumeNode.GetIJKToRASDirectionMatrix(parentIJKToRAS)
+
+        altSign = False
+        altSign = parentIJKToRAS.IsIdentity()  # ensure the parent IJK to RAS matrix is identity
+
+        signMod = -1 if altSign else 1
+
         """Utility function that creates and adds a DICOM2AUT transform node"""
         dicom2aut = vtk.vtkMatrix4x4()
-        dicom2aut.SetElement(0, 3, -origin[0])
-        dicom2aut.SetElement(1, 3, origin[1])
+        dicom2aut.SetElement(0, 3, signMod * -origin[0])
+        dicom2aut.SetElement(1, 3, signMod * origin[1])
         dicom2aut.SetElement(2, 3, origin[2])
         dicom2aut = AutoscoperMLogic.applyPVol2AutTransform(dicom2aut, pvol2autNode)
 
